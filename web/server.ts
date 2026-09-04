@@ -8,7 +8,7 @@ app.disable("x-powered-by");
 const PORT = Number(process.env.PORT || 3000);
 
 // Health check registered directly on Express before React Router handler
-app.get("/healthz", (_req, res) => {
+app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 

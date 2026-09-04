@@ -6,5 +6,5 @@ export default [
   route("app", "routes/app.tsx"),
   route("api/auth/session", "routes/api.auth.session.ts"),
   route("api/auth/logout", "routes/api.auth.logout.ts"),
-  route("healthz", "routes/healthz.ts"),
+  route("api/health", "routes/api.health.ts"),
 ] satisfies RouteConfig;
