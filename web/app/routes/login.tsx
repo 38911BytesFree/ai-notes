@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 
+export function sanitizeReturnTo(rawReturnTo: string | null | undefined): string {
+  if (!rawReturnTo) return "/app";
+  return rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+    ? rawReturnTo
+    : "/app";
+}
+
 export default function Login() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const rawReturnTo = searchParams.get("returnTo") || "/app";
-  const returnTo =
-    rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
-      ? rawReturnTo
-      : "/app";
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   const handleGoogleSignIn = async () => {
     try {
