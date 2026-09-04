@@ -1,0 +1,49 @@
+# Build + deploy pipeline for the Go backend (ai-notes-api) Cloud Run service.
+#
+# Referenced by cloudbuild/triggers/api.trigger.yaml.
+# Built on every push to main.
+steps:
+  - id: Build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --no-cache
+      - -f
+      - api/Dockerfile
+      - -t
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+      - -t
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+      - api
+
+  - id: PushSHA
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+
+  - id: PushLatest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+
+  - id: Deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_SERVICE_NAME
+      - --platform=managed
+      - --image=$_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --quiet
+
+images:
+  - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+  - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE

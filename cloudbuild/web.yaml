@@ -1,0 +1,63 @@
+# Build + deploy pipeline for the React Router frontend (ai-notes-web) Cloud Run service.
+#
+# Referenced by cloudbuild/triggers/web.trigger.yaml.
+# Built on every push to main.
+steps:
+  - id: Build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --no-cache
+      - -f
+      - web/Dockerfile
+      - --build-arg
+      - VITE_FIREBASE_API_KEY=$_VITE_FIREBASE_API_KEY
+      - --build-arg
+      - VITE_FIREBASE_AUTH_DOMAIN=$_VITE_FIREBASE_AUTH_DOMAIN
+      - --build-arg
+      - VITE_FIREBASE_PROJECT_ID=$_VITE_FIREBASE_PROJECT_ID
+      - --build-arg
+      - VITE_FIREBASE_STORAGE_BUCKET=$_VITE_FIREBASE_STORAGE_BUCKET
+      - --build-arg
+      - VITE_FIREBASE_MESSAGING_SENDER_ID=$_VITE_FIREBASE_MESSAGING_SENDER_ID
+      - --build-arg
+      - VITE_FIREBASE_APP_ID=$_VITE_FIREBASE_APP_ID
+      - --build-arg
+      - VITE_FIREBASE_MEASUREMENT_ID=$_VITE_FIREBASE_MEASUREMENT_ID
+      - -t
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+      - -t
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+      - web
+
+  - id: PushSHA
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+
+  - id: PushLatest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+
+  - id: Deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_SERVICE_NAME
+      - --platform=managed
+      - --image=$_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --quiet
+
+images:
+  - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
+  - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE

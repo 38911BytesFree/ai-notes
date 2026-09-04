@@ -1,0 +1,28 @@
+{
+  "name": "ai-notes",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.31.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/dev-emulator.mjs",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "cd api && go run ./cmd/api",
+    "build": "pnpm --filter web build",
+    "typecheck": "pnpm --filter web typecheck",
+    "test": "pnpm --filter web test",
+    "lint": "pnpm --filter web lint"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "esbuild",
+      "protobufjs"
+    ]
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.29.0"
+  }
+}

@@ -1,0 +1,47 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*-service-account*.json
+*.pem
+*.key
+
+# Node
+node_modules/
+web/build/
+web/.react-router/
+.pnpm-store/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Go
+api/bin/
+api/*.exe
+*.test
+*.out
+coverage.*
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars.local
+crash.log
+
+# Firebase emulators
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch
+scratch/
+tmp/
