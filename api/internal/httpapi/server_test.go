@@ -98,6 +98,9 @@ func TestMeUnauthenticated(t *testing.T) {
 func TestMeAuthenticatedAndUpsert(t *testing.T) {
 	srv, memStore, validToken := setupTestServer()
 
+	currentTime := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	memStore.Clock = func() time.Time { return currentTime }
+
 	// First call to /v1/me
 	req := httptest.NewRequest("GET", "/v1/me", nil)
 	req.Header.Set("Authorization", "Bearer "+validToken)
@@ -137,8 +140,8 @@ func TestMeAuthenticatedAndUpsert(t *testing.T) {
 	firstCreatedAt := u1.CreatedAt
 	firstLastSeenAt := u1.LastSeenAt
 
-	// Small delay to ensure timestamp advances
-	time.Sleep(10 * time.Millisecond)
+	// Advance clock by less than 1 hour (15 minutes) - last_seen_at should NOT update
+	currentTime = currentTime.Add(15 * time.Minute)
 
 	// Second call to /v1/me
 	req2 := httptest.NewRequest("GET", "/v1/me", nil)
@@ -158,7 +161,35 @@ func TestMeAuthenticatedAndUpsert(t *testing.T) {
 	if !u2.CreatedAt.Equal(firstCreatedAt) {
 		t.Errorf("expected CreatedAt to remain %v, got %v", firstCreatedAt, u2.CreatedAt)
 	}
-	if !u2.LastSeenAt.After(firstLastSeenAt) {
-		t.Errorf("expected LastSeenAt to advance past %v, got %v", firstLastSeenAt, u2.LastSeenAt)
+	if !u2.LastSeenAt.Equal(firstLastSeenAt) {
+		t.Errorf("expected LastSeenAt to remain %v within 1 hour, got %v", firstLastSeenAt, u2.LastSeenAt)
+	}
+
+	// Advance clock past 1 hour (55 minutes more, 70 minutes total) - last_seen_at SHOULD update
+	currentTime = currentTime.Add(55 * time.Minute)
+
+	// Third call to /v1/me
+	req3 := httptest.NewRequest("GET", "/v1/me", nil)
+	req3.Header.Set("Authorization", "Bearer "+validToken)
+	rec3 := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec3, req3)
+
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on third call, got %d", rec3.Code)
+	}
+
+	u3, err := memStore.GetUser(req3.Context(), "test-uid-123")
+	if err != nil {
+		t.Fatalf("user not found in store on third call: %v", err)
+	}
+
+	if !u3.CreatedAt.Equal(firstCreatedAt) {
+		t.Errorf("expected CreatedAt to remain %v, got %v", firstCreatedAt, u3.CreatedAt)
+	}
+	if !u3.LastSeenAt.After(firstLastSeenAt) {
+		t.Errorf("expected LastSeenAt to advance past %v, got %v", firstLastSeenAt, u3.LastSeenAt)
+	}
+	if !u3.LastSeenAt.Equal(currentTime) {
+		t.Errorf("expected LastSeenAt to be %v, got %v", currentTime, u3.LastSeenAt)
 	}
 }

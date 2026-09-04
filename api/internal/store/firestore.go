@@ -11,15 +11,26 @@ import (
 
 type FirestoreStore struct {
 	client *firestore.Client
+	Clock  func() time.Time
 }
 
 func NewFirestoreStore(client *firestore.Client) *FirestoreStore {
-	return &FirestoreStore{client: client}
+	return &FirestoreStore{
+		client: client,
+		Clock:  func() time.Time { return time.Now().UTC() },
+	}
+}
+
+func (s *FirestoreStore) now() time.Time {
+	if s.Clock != nil {
+		return s.Clock()
+	}
+	return time.Now().UTC()
 }
 
 func (s *FirestoreStore) UpsertUser(ctx context.Context, u User) error {
 	docRef := s.client.Collection("users").Doc(u.UID)
-	now := time.Now().UTC()
+	now := s.now()
 
 	return s.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(docRef)
@@ -27,11 +38,11 @@ func (s *FirestoreStore) UpsertUser(ctx context.Context, u User) error {
 			return err
 		}
 
-		u.LastSeenAt = now
 		if !doc.Exists() {
 			if u.CreatedAt.IsZero() {
 				u.CreatedAt = now
 			}
+			u.LastSeenAt = now
 			return tx.Set(docRef, u)
 		}
 
@@ -39,7 +50,13 @@ func (s *FirestoreStore) UpsertUser(ctx context.Context, u User) error {
 		if err := doc.DataTo(&existing); err != nil {
 			return err
 		}
+
+		if now.Sub(existing.LastSeenAt) < time.Hour {
+			return nil
+		}
+
 		u.CreatedAt = existing.CreatedAt
+		u.LastSeenAt = now
 		return tx.Set(docRef, u)
 	})
 }

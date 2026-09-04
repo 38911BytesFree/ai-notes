@@ -9,19 +9,28 @@ import (
 type MemoryStore struct {
 	mu    sync.RWMutex
 	users map[string]User
+	Clock func() time.Time
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		users: make(map[string]User),
+		Clock: func() time.Time { return time.Now().UTC() },
 	}
+}
+
+func (m *MemoryStore) now() time.Time {
+	if m.Clock != nil {
+		return m.Clock()
+	}
+	return time.Now().UTC()
 }
 
 func (m *MemoryStore) UpsertUser(ctx context.Context, u User) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	now := time.Now().UTC()
+	now := m.now()
 	existing, ok := m.users[u.UID]
 	if !ok {
 		if u.CreatedAt.IsZero() {
@@ -29,6 +38,10 @@ func (m *MemoryStore) UpsertUser(ctx context.Context, u User) error {
 		}
 		u.LastSeenAt = now
 		m.users[u.UID] = u
+		return nil
+	}
+
+	if now.Sub(existing.LastSeenAt) < time.Hour {
 		return nil
 	}
 
