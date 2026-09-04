@@ -16,6 +16,12 @@ variable "domain" {
   default     = "ai-notes.io"
 }
 
+variable "manage_domain" {
+  type        = bool
+  description = "Whether to manage Cloud Run custom domain mappings"
+  default     = false
+}
+
 variable "billing_account_id" {
   type        = string
   description = "GCP Billing Account ID for budget alerting"
