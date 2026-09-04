@@ -13,12 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"ainotes/internal/ai"
 	"ainotes/internal/config"
 	"ainotes/internal/httpapi"
 	"ainotes/internal/ingest"
 	"ainotes/internal/store"
 
 	"cloud.google.com/go/firestore"
+	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go/v4"
 	"github.com/joho/godotenv"
 )
@@ -128,8 +130,65 @@ func main() {
 	defer firestoreClient.Close()
 
 	userStore := store.NewFirestoreStore(firestoreClient)
+
+	var summariser ai.Summariser
+	var embedder ai.Embedder
+	var blobStore store.BlobStore
+
+	if cfg.UseFakeAI {
+		logger.Info("USE_FAKE_AI=true: wiring fake summariser, fake embedder, and memory blob store")
+		summariser = ai.NewFakeSummariser()
+		embedder = ai.NewFakeEmbedder()
+		blobStore = store.NewMemoryBlobStore()
+	} else {
+		vertexClient, err := ai.NewVertexAI(ctx, ai.VertexConfig{
+			Project:  cfg.GoogleCloudProject,
+			Location: cfg.VertexLocation,
+			Model:    cfg.GeminiModel,
+		})
+		if err != nil {
+			logger.Error("failed to initialize vertex ai client", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		summariser = vertexClient
+		embedder = vertexClient
+
+		if cfg.TranscriptsBucket == "" {
+			logger.Error("TRANSCRIPTS_BUCKET environment variable is required in production")
+			os.Exit(1)
+		}
+		gcsClient, err := storage.NewClient(ctx)
+		if err != nil {
+			logger.Error("failed to initialize gcs client", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		defer gcsClient.Close()
+		blobStore = store.NewGCSBlobStore(gcsClient, cfg.TranscriptsBucket)
+	}
+
+	pipeline := ingest.NewPipeline(
+		ingest.PipelineConfig{
+			MaxSummariserChars: cfg.SummariserMaxChars,
+			MonthlyLimit:       cfg.IngestMonthlyLimit,
+		},
+		userStore,
+		blobStore,
+		summariser,
+		embedder,
+		logger,
+	)
+
 	verifier := httpapi.NewFirebaseTokenVerifier(authClient)
-	srv := httpapi.NewServer(cfg, userStore, verifier, logger)
+	srv := httpapi.NewServer(httpapi.ServerDeps{
+		Config:     cfg,
+		Store:      userStore,
+		BlobStore:  blobStore,
+		Verifier:   verifier,
+		Pipeline:   pipeline,
+		Embedder:   embedder,
+		AuthClient: authClient,
+		Logger:     logger,
+	})
 
 	httpServer := &http.Server{
 		Addr:    cfg.BindAddress,

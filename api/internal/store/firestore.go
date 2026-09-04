@@ -117,7 +117,15 @@ func (s *FirestoreStore) ReserveIngest(ctx context.Context, uid, period string, 
 		doc, err := tx.Get(docRef)
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
-				return ErrNotFound
+				u := User{
+					UID:                   uid,
+					CreatedAt:             time.Now().UTC(),
+					LastSeenAt:            time.Now().UTC(),
+					DefaultKeepTranscript: true,
+					IngestPeriod:          period,
+					IngestCount:           1,
+				}
+				return tx.Set(docRef, u)
 			}
 			return err
 		}

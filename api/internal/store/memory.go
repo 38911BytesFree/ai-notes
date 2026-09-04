@@ -93,7 +93,16 @@ func (m *MemoryStore) ReserveIngest(ctx context.Context, uid, period string, lim
 
 	user, ok := m.users[uid]
 	if !ok {
-		return ErrNotFound
+		user = User{
+			UID:                   uid,
+			CreatedAt:             time.Now().UTC(),
+			LastSeenAt:            time.Now().UTC(),
+			DefaultKeepTranscript: true,
+			IngestPeriod:          period,
+			IngestCount:           1,
+		}
+		m.users[uid] = user
+		return nil
 	}
 
 	if user.IngestPeriod != period {

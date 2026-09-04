@@ -18,6 +18,23 @@ type TokenVerifier interface {
 	Verify(ctx context.Context, idToken string) (*auth.Token, error)
 }
 
+type AuthUserDeleter interface {
+	DeleteUser(ctx context.Context, uid string) error
+}
+
+type TestAuthUserDeleter struct {
+	DeletedUIDs []string
+	Err         error
+}
+
+func (t *TestAuthUserDeleter) DeleteUser(_ context.Context, uid string) error {
+	if t.Err != nil {
+		return t.Err
+	}
+	t.DeletedUIDs = append(t.DeletedUIDs, uid)
+	return nil
+}
+
 type FirebaseTokenVerifier struct {
 	client *auth.Client
 }

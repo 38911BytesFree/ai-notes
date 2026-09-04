@@ -7,16 +7,33 @@ import (
 	"os"
 	"time"
 
+	"ainotes/internal/ai"
 	"ainotes/internal/config"
+	"ainotes/internal/ingest"
 	"ainotes/internal/store"
 )
 
+type ServerDeps struct {
+	Config     *config.Config
+	Store      store.Store
+	BlobStore  store.BlobStore
+	Verifier   TokenVerifier
+	Pipeline   *ingest.Pipeline
+	Embedder   ai.Embedder
+	AuthClient AuthUserDeleter
+	Logger     *slog.Logger
+}
+
 type Server struct {
-	cfg      *config.Config
-	store    store.Store
-	verifier TokenVerifier
-	logger   *slog.Logger
-	handler  http.Handler
+	cfg        *config.Config
+	store      store.Store
+	blobStore  store.BlobStore
+	verifier   TokenVerifier
+	pipeline   *ingest.Pipeline
+	embedder   ai.Embedder
+	authClient AuthUserDeleter
+	logger     *slog.Logger
+	handler    http.Handler
 }
 
 func NewCloudLoggingLogger() *slog.Logger {
@@ -47,26 +64,50 @@ func NewCloudLoggingLogger() *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, opts))
 }
 
-func NewServer(cfg *config.Config, store store.Store, verifier TokenVerifier, logger *slog.Logger) *Server {
+func NewServer(deps ServerDeps) *Server {
+	logger := deps.Logger
 	if logger == nil {
 		logger = NewCloudLoggingLogger()
 	}
 
 	s := &Server{
-		cfg:      cfg,
-		store:    store,
-		verifier: verifier,
-		logger:   logger,
+		cfg:        deps.Config,
+		store:      deps.Store,
+		blobStore:  deps.BlobStore,
+		verifier:   deps.Verifier,
+		pipeline:   deps.Pipeline,
+		embedder:   deps.Embedder,
+		authClient: deps.AuthClient,
+		logger:     logger,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
+
+	// User endpoints
 	mux.Handle("GET /v1/me", s.requireUser(http.HandlerFunc(s.handleMe)))
+	mux.Handle("PATCH /v1/me", s.requireUser(http.HandlerFunc(s.handlePatchMe)))
+	mux.Handle("GET /v1/me/export", s.requireUser(http.HandlerFunc(s.handleExportMe)))
+	mux.Handle("DELETE /v1/me", s.requireUser(http.HandlerFunc(s.handleDeleteMe)))
+
+	// Ingest endpoint
+	mux.Handle("POST /v1/ingest", s.requireUser(http.HandlerFunc(s.handleIngest)))
+
+	// Notes endpoints
+	mux.Handle("GET /v1/notes", s.requireUser(http.HandlerFunc(s.handleListNotes)))
+	mux.Handle("GET /v1/notes/search", s.requireUser(http.HandlerFunc(s.handleSearchNotes)))
+	mux.Handle("GET /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleGetNote)))
+	mux.Handle("PATCH /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handlePatchNote)))
+	mux.Handle("DELETE /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleDeleteNote)))
+
+	// Transcript endpoints
+	mux.Handle("GET /v1/notes/{id}/transcript", s.requireUser(http.HandlerFunc(s.handleGetTranscript)))
+	mux.Handle("DELETE /v1/notes/{id}/transcript", s.requireUser(http.HandlerFunc(s.handleDeleteTranscript)))
 
 	s.handler = s.accessLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, pattern := mux.Handler(r)
 		if pattern == "" {
-			s.respondJSON(w, http.StatusNotFound, map[string]string{"code": "not_found"})
+			writeError(w, ErrCodeNotFound)
 			return
 		}
 		mux.ServeHTTP(w, r)
@@ -93,7 +134,7 @@ func (s *Server) respondJSON(w http.ResponseWriter, status int, data any) {
 
 type responseRecorder struct {
 	http.ResponseWriter
-	statusCode int
+	statusCode  int
 	wroteHeader bool
 }
 
