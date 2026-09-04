@@ -4,6 +4,9 @@ export type UserData = {
   uid: string;
   email: string;
   display_name: string;
+  default_keep_transcript: boolean;
+  ingest_count: number;
+  ingest_limit: number;
 };
 
 export type ValidateTokenResult =

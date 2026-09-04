@@ -37,7 +37,10 @@ export async function validateAuth(request: Request): Promise<ValidateAuthResult
   }
 }
 
-export async function requireAuth(request: Request): Promise<ValidateAuthResult> {
+/** The narrowed result of requireAuth: `user` is always present. */
+export type AuthenticatedResult = ValidateAuthResult & { user: UserData };
+
+export async function requireAuth(request: Request): Promise<AuthenticatedResult> {
   const result = await validateAuth(request);
   if (result.serviceError) {
     throw new Response("Authentication service is temporarily unavailable.", {
@@ -50,7 +53,7 @@ export async function requireAuth(request: Request): Promise<ValidateAuthResult>
       headers: result.clearCookie ? { "Set-Cookie": result.clearCookie } : undefined,
     });
   }
-  return result;
+  return { ...result, user: result.user };
 }
 
 export async function getAuthToken(request: Request): Promise<string | null> {

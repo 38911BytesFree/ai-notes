@@ -6,21 +6,9 @@ import { authenticationStorage } from "~/services/session.server";
 import * as notesApi from "~/services/notes-api.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  // requireAuth already called GET /v1/me; reuse that profile.
   const { user } = await requireAuth(request);
-  const profileRes = await notesApi.getMe(request);
-
-  return {
-    user: profileRes.ok
-      ? profileRes.data
-      : {
-          uid: user?.uid || "",
-          email: user?.email || "",
-          display_name: user?.display_name || "",
-          default_keep_transcript: true,
-          ingest_count: 0,
-          ingest_limit: 30,
-        },
-  };
+  return { user };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -121,7 +109,7 @@ export default function SettingsView() {
             <div>
               <h3 className="text-sm font-medium text-gray-900">Keep original transcripts by default</h3>
               <p className="text-xs text-gray-500">
-                When enabled, the full raw conversation text is encrypted and stored in your private storage.
+                When enabled, the full conversation text is kept in private storage so you can download it later. Turn it off to keep only the summary.
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer ml-4">
