@@ -45,8 +45,8 @@ func TestParseClaudeJSON(t *testing.T) {
 	if transcript.Provider != "claude" {
 		t.Errorf("expected provider 'claude', got %q", transcript.Provider)
 	}
-	if transcript.Model != "claude-3-5-sonnet" {
-		t.Errorf("expected model 'claude-3-5-sonnet', got %q", transcript.Model)
+	if transcript.Model != "" {
+		t.Errorf("snapshot JSON carries no model; expected empty, got %q", transcript.Model)
 	}
 	if len(transcript.Messages) != 6 {
 		t.Fatalf("expected 6 messages, got %d", len(transcript.Messages))

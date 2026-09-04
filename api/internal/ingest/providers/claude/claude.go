@@ -79,7 +79,7 @@ func ParseJSON(body []byte) (notes.Transcript, error) {
 
 	return notes.Transcript{
 		Provider:         "claude",
-		Model:            "claude-3-5-sonnet",
+		Model:            "", // the snapshot JSON does not carry the model
 		ConversationDate: convDate,
 		Messages:         messages,
 	}, nil

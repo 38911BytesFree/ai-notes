@@ -246,9 +246,16 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 		}
 	}
 
-	// Save note document in store
+	// Save note document in store. If this fails, remove the transcript object
+	// so nothing is left behind that no note refers to.
 	if err := p.store.CreateNote(ctx, note); err != nil {
 		p.logger.Error("failed to store note", slog.String("error", err.Error()))
+		if note.HasTranscript && p.blobStore != nil {
+			blobKey := fmt.Sprintf("transcripts/%s.json.gz", note.ID)
+			if delErr := p.blobStore.Delete(ctx, blobKey); delErr != nil {
+				p.logger.Error("failed to remove orphan transcript", slog.String("key", blobKey), slog.String("error", delErr.Error()))
+			}
+		}
 		return nil, err
 	}
 

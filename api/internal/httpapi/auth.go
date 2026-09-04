@@ -43,8 +43,12 @@ func NewFirebaseTokenVerifier(client *auth.Client) *FirebaseTokenVerifier {
 	return &FirebaseTokenVerifier{client: client}
 }
 
+// Verify checks signature, issuer, audience, and expiry locally against the
+// cached Google public keys. It deliberately does not call
+// VerifyIDTokenAndCheckRevoked: that adds an Identity Toolkit round-trip to
+// every API request, and ID tokens expire within an hour anyway.
 func (v *FirebaseTokenVerifier) Verify(ctx context.Context, idToken string) (*auth.Token, error) {
-	return v.client.VerifyIDTokenAndCheckRevoked(ctx, idToken)
+	return v.client.VerifyIDToken(ctx, idToken)
 }
 
 type TestTokenVerifier struct {

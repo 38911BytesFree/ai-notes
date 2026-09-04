@@ -217,8 +217,12 @@ func (s *Server) handleDeleteMe(w http.ResponseWriter, r *http.Request) {
 	// 3. Delete Firebase Auth user
 	if s.authClient != nil {
 		if err := s.authClient.DeleteUser(ctx, tok.UID); err != nil {
+			// Data is gone but the login still exists; the user must retry so the
+			// auth record is removed too. Reporting success here would leave a
+			// sign-in that lands on a fresh empty account.
 			s.logger.Error("failed to delete firebase auth user", slog.String("uid", tok.UID), slog.String("error", err.Error()))
-			// Continue to return 204 if user records were wiped
+			writeError(w, ErrCodeInternalError)
+			return
 		}
 	}
 
