@@ -41,7 +41,6 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 | `pnpm build` | Builds the web app for production (`react-router build && esbuild server.ts`). |
 | `pnpm typecheck` | Runs React Router typegen and TypeScript compiler checks. |
 | `pnpm test` | Runs web tests (`vitest run`) and Go tests (`cd api && go test ./...`). |
-| `pnpm lint` | Runs repo linters and static analysis. |
 
 ## Style & Architectural Rules
 
