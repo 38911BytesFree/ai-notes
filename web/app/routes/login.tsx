@@ -7,7 +7,11 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const returnTo = searchParams.get("returnTo") || "/app";
+  const rawReturnTo = searchParams.get("returnTo") || "/app";
+  const returnTo =
+    rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : "/app";
 
   const handleGoogleSignIn = async () => {
     try {

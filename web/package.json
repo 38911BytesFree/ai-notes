@@ -8,7 +8,9 @@
     "build": "react-router build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --outfile=build/server/index.js",
     "start": "node build/server/index.js",
     "typecheck": "react-router typegen && tsc",
+    "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
+
   },
   "dependencies": {
     "@react-router/express": "^7.15.1",
