@@ -20,6 +20,10 @@ resource "google_cloud_run_v2_service" "api" {
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
 
+      resources {
+        startup_cpu_boost = true
+      }
+
       ports {
         container_port = 8000
       }
@@ -66,7 +70,7 @@ resource "google_cloud_run_v2_service" "api" {
       template[0].containers[0].image,
       client,
       client_version,
-      scaling,
+      scaling, # service-level block Cloud Run reports back; template[0].scaling stays managed
     ]
   }
 
@@ -106,13 +110,23 @@ resource "google_cloud_run_v2_service" "web" {
       max_instance_count = 5
     }
 
+    # Direct VPC Egress: no always-on connector instances. ALL_TRAFFIC is
+    # required so calls to the internal-ingress API count as VPC-originated;
+    # Google APIs are reached via Private Google Access on the subnet.
     vpc_access {
-      connector = google_vpc_access_connector.connector.id
-      egress    = "ALL_TRAFFIC"
+      network_interfaces {
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.subnet.id
+      }
+      egress = "ALL_TRAFFIC"
     }
 
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
+
+      resources {
+        startup_cpu_boost = true
+      }
 
       ports {
         container_port = 3000
@@ -150,13 +164,13 @@ resource "google_cloud_run_v2_service" "web" {
       template[0].containers[0].image,
       client,
       client_version,
-      scaling,
+      scaling, # service-level block Cloud Run reports back; template[0].scaling stays managed
     ]
   }
 
   depends_on = [
     google_project_service.services["run.googleapis.com"],
-    google_vpc_access_connector.connector,
+    google_compute_subnetwork.subnet,
     google_secret_manager_secret.session_secret
   ]
 }

@@ -6,7 +6,6 @@ locals {
     "secretmanager.googleapis.com",
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
-    "vpcaccess.googleapis.com",
     "compute.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",

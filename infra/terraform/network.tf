@@ -12,21 +12,8 @@ resource "google_compute_subnetwork" "subnet" {
   region        = var.region
   network       = google_compute_network.vpc.id
   project       = var.project_id
-}
 
-resource "google_vpc_access_connector" "connector" {
-  name          = "ai-notes-vpc-connector"
-  region        = var.region
-  project       = var.project_id
-  ip_cidr_range = "10.8.0.0/28"
-  network       = google_compute_network.vpc.name
-
-  min_instances = 2
-  max_instances = 3
-  machine_type  = "e2-micro"
-
-  depends_on = [
-    google_project_service.services["vpcaccess.googleapis.com"],
-    google_compute_network.vpc
-  ]
+  # Direct VPC Egress routes all web-service traffic through this subnet;
+  # Private Google Access lets it reach Google APIs without Cloud NAT.
+  private_ip_google_access = true
 }
