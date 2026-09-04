@@ -12,9 +12,9 @@ resource "google_cloud_run_v2_service" "api" {
   template {
     service_account = google_service_account.api.email
 
-    vpc_access {
-      connector = google_vpc_access_connector.connector.id
-      egress    = "ALL_TRAFFIC"
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 5
     }
 
     containers {
@@ -41,13 +41,11 @@ resource "google_cloud_run_v2_service" "api" {
       template[0].containers[0].image,
       client,
       client_version,
-      scaling,
     ]
   }
 
   depends_on = [
-    google_project_service.services["run.googleapis.com"],
-    google_vpc_access_connector.connector
+    google_project_service.services["run.googleapis.com"]
   ]
 }
 
@@ -73,6 +71,12 @@ resource "google_cloud_run_v2_service" "web" {
 
   template {
     service_account = google_service_account.web.email
+    timeout         = "900s"
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 5
+    }
 
     vpc_access {
       connector = google_vpc_access_connector.connector.id
@@ -118,7 +122,6 @@ resource "google_cloud_run_v2_service" "web" {
       template[0].containers[0].image,
       client,
       client_version,
-      scaling,
     ]
   }
 
