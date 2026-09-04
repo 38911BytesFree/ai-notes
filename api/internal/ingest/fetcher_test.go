@@ -1,6 +1,9 @@
 package ingest
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -33,5 +36,23 @@ func TestProviderFor(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestChatGPTProviderUsesSafeClient proves the registered ChatGPT provider goes
+// through the SSRF-safe client: a fetch to an off-allowlist host is refused
+// before any connection is made.
+func TestChatGPTProviderUsesSafeClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("provider connected to a non-allowlisted host: %s", r.Host)
+	}))
+	defer srv.Close()
+
+	f, err := ProviderFor("https://chatgpt.com/share/abc")
+	if err != nil {
+		t.Fatalf("ProviderFor: %v", err)
+	}
+	if _, err := f.Fetch(context.Background(), srv.URL+"/share/abc"); err == nil {
+		t.Fatal("expected error fetching an off-allowlist host through the ChatGPT provider")
 	}
 }

@@ -4,8 +4,11 @@ go 1.25.5
 
 require (
 	cloud.google.com/go/firestore v1.25.0
+	cloud.google.com/go/storage v1.62.1
 	firebase.google.com/go/v4 v4.21.0
 	github.com/joho/godotenv v1.5.1
+	google.golang.org/api v0.287.1
+	google.golang.org/genai v1.71.0
 	google.golang.org/grpc v1.83.2
 )
 
@@ -18,7 +21,6 @@ require (
 	cloud.google.com/go/iam v1.11.0 // indirect
 	cloud.google.com/go/longrunning v1.2.0 // indirect
 	cloud.google.com/go/monitoring v1.29.0 // indirect
-	cloud.google.com/go/storage v1.62.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.56.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.56.0 // indirect
@@ -57,9 +59,7 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/api v0.287.1 // indirect
 	google.golang.org/appengine/v2 v2.0.6 // indirect
-	google.golang.org/genai v1.71.0 // indirect
 	google.golang.org/genproto v0.0.0-20260511170946-3700d4141b60 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260630182238-925bb5da69e7 // indirect

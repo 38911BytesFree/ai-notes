@@ -24,9 +24,11 @@ type Fetcher interface {
 	Fetch(ctx context.Context, rawURL string) (notes.Transcript, error)
 }
 
-// Registry of supported providers.
+// Registry of supported providers. Every provider that makes network calls
+// must use the SSRF-safe client (allowlist, redirect check, public-IP dialer,
+// body cap, timeout); never http.DefaultClient.
 var providers = []Fetcher{
-	chatgpt.New(),
+	chatgpt.NewWithClient(NewClient(DefaultAllowlist)),
 	claude.New(),
 }
 
