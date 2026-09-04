@@ -199,9 +199,10 @@ console.log("Go API is up.");
 // 3. Start Web app
 run(
   "web",
-  "npx",
-  ["react-router", "dev", "--port", String(WEB_PORT)],
+  "pnpm",
+  ["exec", "tsx", "server.ts"],
   {
+    PORT: String(WEB_PORT),
     BACKEND_URL: `http://${BACKEND}`,
     VITE_FIREBASE_AUTH_EMULATOR_HOST: AUTH,
   },
