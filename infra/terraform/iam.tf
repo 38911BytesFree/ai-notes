@@ -15,11 +15,18 @@ resource "google_project_iam_member" "api_datastore" {
   member  = "serviceAccount:${google_service_account.api.email}"
 }
 
+resource "google_project_iam_member" "api_firebase_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.viewer"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
 resource "google_project_iam_member" "api_logging" {
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.api.email}"
 }
+
 
 # Web Runtime Service Account
 resource "google_service_account" "web" {
