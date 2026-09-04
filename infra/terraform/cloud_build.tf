@@ -14,6 +14,8 @@ resource "google_cloudbuild_trigger" "api_deploy" {
     }
   }
 
+  included_files = ["api/**", "cloudbuild/api.yaml"]
+
   filename = "cloudbuild/api.yaml"
 
   substitutions = {
@@ -43,6 +45,8 @@ resource "google_cloudbuild_trigger" "web_deploy" {
       branch = "^main$"
     }
   }
+
+  included_files = ["web/**", "cloudbuild/web.yaml"]
 
   filename = "cloudbuild/web.yaml"
 
