@@ -42,10 +42,26 @@ pnpm dev
   - **Firestore Emulator**: `http://127.0.0.1:8088`
 - Starts the Go API backend:
   - **API**: `http://127.0.0.1:8000` (talks to the local emulators)
+  - Automatically sets `USE_FAKE_AI=true` so no GCP credentials or billing accounts are required locally.
 - Starts the React Router web application:
   - **Web**: `http://localhost:5173` (proxies auth to the Go API)
 
 Press `Ctrl+C` in the terminal to gracefully terminate all child processes.
+
+## Environment Variables
+
+| Variable | Service | Purpose | Default |
+|---|---|---|---|
+| `GOOGLE_CLOUD_PROJECT` | api, web | GCP Project ID | `ai-notes-507510` |
+| `TRANSCRIPTS_BUCKET` | api | GCS bucket name for gzipped raw transcripts | Required in prod (`ai-notes-507510-transcripts`) |
+| `GEMINI_MODEL` | api | Gemini summariser model ID | `gemini-2.5-flash` |
+| `VERTEX_LOCATION` | api | Vertex AI location region | `europe-west1` |
+| `INGEST_MONTHLY_LIMIT` | api | Monthly free ingest quota per user | `30` |
+| `SUMMARISER_MAX_CHARS` | api | Transcript summarisation truncation character budget | `200000` |
+| `USE_FAKE_AI` | api (local) | Wires deterministic fake AI and memory blob store | `false` (set `true` in `pnpm dev`) |
+| `BACKEND_URL` | web | Private Go API base URL | `http://127.0.0.1:8000` |
+| `SESSION_SECRET` | web | Iron session cookie encryption secret | Required |
+| `PORT` | web | Express server listen port | `5173` local, `8080` prod |
 
 ## Tests and Verification
 

@@ -21,21 +21,28 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 
 - **Go API (`api/`)**:
   - Authoritative data storage and transactional domain operations in Firestore.
+  - The Go API is the **only** service that talks to Firestore, Cloud Storage (GCS), or Vertex AI.
+  - Package layout:
+    - `internal/notes`: Domain models, 20-character base32 ID generation, 18-category taxonomy, validation and truncation.
+    - `internal/ingest`: SSRF-safe HTTP client, provider scrapers/parsers (ChatGPT, Claude), 7-step ingest pipeline.
+    - `internal/ai`: Vertex AI structured JSON summarisation and 768-dim embeddings, deterministic fakes for local dev.
+    - `internal/store`: Firestore native store with `FindNearest` cosine vector search, Memory store, GCS and Memory blob stores.
+    - `internal/httpapi`: REST handlers, strict JSON errors defined in `internal/httpapi/errors.go`.
   - User record management (`GET /v1/me` upserts and retrieves user profiles).
   - Pure JSON API: errors are strictly structured (`{"code":"<symbolic_code>"}`), never free-form prose.
-  - Future phases: note storage, vector embedding processing, search pipelines, and tool execution.
 
 - **Node Web BFF (`web/`)**:
   - User interface rendering and routing (React Router v7 Framework Mode).
   - Session cookie issuance, serialization, rotation, and revocation (`__session`).
   - Google Identity authentication orchestration via Firebase Client SDK.
-  - Future phases: MCP transport server, OAuth 2.1 AS token issuance and client authorization.
+  - Rate limiting (token bucket per IP) and share URL provider allowlist verification.
+  - Translates symbolic API error codes into user-friendly copy. Never touches GCP services directly.
 
 ## Developer Commands
 
 | Command | What it does |
 |---|---|
-| `pnpm dev` | Starts the Firebase emulator stack (Auth + Firestore), Go API, and React Router web app. |
+| `pnpm dev` | Starts the Firebase emulator stack (Auth + Firestore), Go API with `USE_FAKE_AI=true`, and React Router web app. |
 | `pnpm dev:web` | Starts the web app only (assumes API and emulators are already running). |
 | `pnpm dev:api` | Starts the Go API only (assumes emulators or GCP credentials are active). |
 | `pnpm build` | Builds the web app for production (`react-router build && esbuild server.ts`). |
@@ -44,17 +51,18 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 
 ## Style & Architectural Rules
 
-1. **No prose errors in Go API responses**: Every error response is a JSON object with at least a `code` field drawn from a closed set (e.g. `{"code":"unauthenticated"}`).
+1. **No prose errors in Go API responses**: Every error response is a JSON object with at least a `code` field drawn strictly from the closed set defined in `api/internal/httpapi/errors.go` (e.g. `unauthenticated`, `not_found`, `invalid_argument`, `unsupported_provider`, `fetch_failed`, `fetch_blocked`, `transcript_empty`, `transcript_too_long`, `summarise_failed`, `ingest_limit_reached`, `internal_error`).
 2. **Go API is never public**: It has no `allUsers` invoker binding in Terraform, its Cloud Run ingress is internal-only, and its tests verify rejection of unauthenticated requests.
-3. **Node BFF owns the session cookie**: The browser never holds a long-lived database or API credential.
-4. **Least privilege on service accounts**: No `owner`, `editor`, or broad admin roles on runtime service accounts (`sa-ai-notes-api`, `sa-ai-notes-web`).
-5. **No checked-in secrets**: Any file containing secrets (`.env`, `*-service-account*.json`, `*.pem`, `*.key`) is gitignored. CI rejects commits with secret keys.
-6. **Monorepo, not polyrepo**: One repo, one commit history, one CI pipeline.
-7. **Explicit dependencies only**: No required global tools beyond standard runtimes.
-8. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
-9. **No premature abstraction**: Write concrete implementations first.
-10. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
-11. **Never suppress warnings or errors**: Never suppress warnings (e.g., no `suppressHydrationWarning`), ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
+3. **Only Go API touches cloud data services**: The Go API is the only service with access to Firestore, Cloud Storage, or Vertex AI. The Web BFF never calls GCP data APIs directly.
+4. **Node BFF owns the session cookie**: The browser never holds a long-lived database or API credential.
+5. **Least privilege on service accounts**: No `owner`, `editor`, or broad admin roles on runtime service accounts (`sa-ai-notes-api`, `sa-ai-notes-web`).
+6. **No checked-in secrets**: Any file containing secrets (`.env`, `*-service-account*.json`, `*.pem`, `*.key`) is gitignored. CI rejects commits with secret keys.
+7. **Monorepo, not polyrepo**: One repo, one commit history, one CI pipeline.
+8. **Explicit dependencies only**: No required global tools beyond standard runtimes.
+9. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
+10. **No premature abstraction**: Write concrete implementations first.
+11. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
+12. **Never suppress warnings or errors**: Never suppress warnings (e.g., no `suppressHydrationWarning`), ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
 
 ## Deployment Notes
 
