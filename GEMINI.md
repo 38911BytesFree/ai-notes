@@ -55,6 +55,7 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 8. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
 9. **No premature abstraction**: Write concrete implementations first.
 10. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
+11. **Never suppress warnings or errors**: Never suppress warnings (e.g., no `suppressHydrationWarning`), ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
 
 ## Deployment Notes
 

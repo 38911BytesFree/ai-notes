@@ -25,14 +25,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
+    <html lang="en" className="h-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body className="min-h-full flex flex-col font-sans antialiased text-gray-900 bg-white" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col font-sans antialiased text-gray-900 bg-white">
         {children}
         <ScrollRestoration />
         <Scripts />
