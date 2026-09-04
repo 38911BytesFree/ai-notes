@@ -33,6 +33,31 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
+
+      env {
+        name  = "TRANSCRIPTS_BUCKET"
+        value = google_storage_bucket.transcripts.name
+      }
+
+      env {
+        name  = "GEMINI_MODEL"
+        value = "gemini-2.5-flash"
+      }
+
+      env {
+        name  = "VERTEX_LOCATION"
+        value = var.region
+      }
+
+      env {
+        name  = "INGEST_MONTHLY_LIMIT"
+        value = "30"
+      }
+
+      env {
+        name  = "SUMMARISER_MAX_CHARS"
+        value = "200000"
+      }
     }
   }
 
@@ -41,11 +66,14 @@ resource "google_cloud_run_v2_service" "api" {
       template[0].containers[0].image,
       client,
       client_version,
+      scaling,
     ]
   }
 
   depends_on = [
-    google_project_service.services["run.googleapis.com"]
+    google_project_service.services["run.googleapis.com"],
+    google_project_service.services["aiplatform.googleapis.com"],
+    google_storage_bucket.transcripts,
   ]
 }
 
@@ -122,6 +150,7 @@ resource "google_cloud_run_v2_service" "web" {
       template[0].containers[0].image,
       client,
       client_version,
+      scaling,
     ]
   }
 

@@ -17,7 +17,13 @@ resource "google_project_iam_member" "api_datastore" {
 
 resource "google_project_iam_member" "api_firebase_auth" {
   project = var.project_id
-  role    = "roles/firebaseauth.viewer"
+  role    = "roles/firebaseauth.admin"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "api_aiplatform" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.api.email}"
 }
 

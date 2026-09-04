@@ -11,6 +11,7 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
     "billingbudgets.googleapis.com",
+    "aiplatform.googleapis.com",
   ]
 }
 
