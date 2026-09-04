@@ -23,8 +23,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const category = url.searchParams.get("category")?.trim() || undefined;
   const cursor = url.searchParams.get("cursor")?.trim() || undefined;
 
-  const profileRes = await notesApi.getMe(request);
-  const userProfile = profileRes.ok ? profileRes.data : undefined;
+  // requireAuth already called GET /v1/me; reuse that profile instead of a
+  // second round-trip to the API.
+  const userProfile = user;
 
   let notes: NoteListItem[] = [];
   let nextCursor: string | undefined;
@@ -43,14 +44,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   return {
-    user: userProfile ?? {
-      uid: user?.uid || "",
-      email: user?.email || "",
-      display_name: user?.display_name || "",
-      default_keep_transcript: true,
-      ingest_count: 0,
-      ingest_limit: 30,
-    },
+    user: userProfile,
     notes,
     nextCursor,
     query: q,
@@ -210,10 +204,12 @@ export default function App() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* Hidden field carries the explicit value: an unchecked checkbox is
+                  omitted from the post, which the action would otherwise read as "keep". */}
+              <input type="hidden" name="keep_transcript" value={keepTranscript ? "true" : "false"} />
               <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  name="keep_transcript"
                   disabled={isIngesting}
                   checked={keepTranscript}
                   onChange={(e) => setKeepTranscript(e.target.checked)}

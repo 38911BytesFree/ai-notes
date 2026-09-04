@@ -14,7 +14,7 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   let input = "";
-  let keepTranscript = true;
+  let keepTranscript: boolean | undefined = undefined;
 
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
@@ -31,6 +31,8 @@ export async function action({ request }: ActionFunctionArgs) {
     try {
       const formData = await request.formData();
       input = String(formData.get("input") ?? formData.get("share_url") ?? formData.get("text") ?? "").trim();
+      // The form always posts an explicit true/false via a hidden field. If the
+      // key is absent, leave it undefined so the API applies the stored default.
       const keepVal = formData.get("keep_transcript");
       if (keepVal !== null) {
         keepTranscript = keepVal === "on" || keepVal === "true" || keepVal === "1";
@@ -52,9 +54,10 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
+  const keep = keepTranscript !== undefined ? { keep_transcript: keepTranscript } : {};
   const payload = isUrl
-    ? { share_url: input, keep_transcript: keepTranscript }
-    : { text: input, provider: "manual", keep_transcript: keepTranscript };
+    ? { share_url: input, ...keep }
+    : { text: input, provider: "manual", ...keep };
 
   const result = await notesApi.ingest(request, payload);
 
