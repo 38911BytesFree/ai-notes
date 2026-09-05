@@ -7,6 +7,7 @@ export default [
   route("app", "routes/app.tsx"),
   route("app/notes/:id", "routes/app.notes.$id.tsx"),
   route("app/settings", "routes/app.settings.tsx"),
+  route("app/connect", "routes/app.connect.tsx"),
   route("terms", "routes/terms.tsx"),
   route("privacy", "routes/privacy.tsx"),
   route("api/auth/session", "routes/api.auth.session.ts"),
@@ -15,4 +16,5 @@ export default [
   route("api/ingest", "routes/api.ingest.ts"),
   route("api/notes/:id/transcript", "routes/api.notes.$id.transcript.ts"),
   route("api/me/export", "routes/api.me.export.ts"),
+  route("api/pats", "routes/api.pats.ts"),
 ] satisfies RouteConfig;
