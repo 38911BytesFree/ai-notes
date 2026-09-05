@@ -1,1 +1,15 @@
-@import "tailwindcss";
+/* Scan only the application source for utility classes.
+ *
+ * Tailwind's automatic source detection walks the project directory and skips
+ * whatever .gitignore excludes. Inside the Docker image there is no .gitignore
+ * above web/, so the second (server) build pass scanned the client pass's own
+ * output in build/, generated extra utilities, and emitted a different CSS file
+ * than the client had. Server and client then rendered different stylesheet
+ * hrefs and hydration failed with React error #418.
+ *
+ * Naming the sources explicitly makes the generated CSS depend only on the app
+ * source, so both passes emit the same file everywhere.
+ */
+@import "tailwindcss" source(none);
+
+@source "./**/*.{ts,tsx}";
