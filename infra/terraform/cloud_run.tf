@@ -1,3 +1,8 @@
+locals {
+  api_service_url = "https://ai-notes-api-g3q7qn4imq-ew.a.run.app"
+  public_base_url = var.manage_domain ? "https://${var.domain}" : "https://ai-notes-web-g3q7qn4imq-ew.a.run.app"
+}
+
 # -----------------------------------------------------------------------------
 # Cloud Run: Go API (Private, Internal Ingress)
 # -----------------------------------------------------------------------------
@@ -61,6 +66,16 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "SUMMARISER_MAX_CHARS"
         value = "200000"
+      }
+
+      env {
+        name  = "SERVICE_AUDIENCE"
+        value = local.api_service_url
+      }
+
+      env {
+        name  = "WEB_SERVICE_ACCOUNT"
+        value = google_service_account.web.email
       }
     }
   }
@@ -145,6 +160,11 @@ resource "google_cloud_run_v2_service" "web" {
       env {
         name  = "NODE_ENV"
         value = "production"
+      }
+
+      env {
+        name  = "PUBLIC_BASE_URL"
+        value = local.public_base_url
       }
 
       env {

@@ -47,6 +47,13 @@ resource "google_project_iam_member" "web_logging" {
   member  = "serviceAccount:${google_service_account.web.email}"
 }
 
+# Allow Web Runtime SA to sign blobs for Firebase custom tokens
+resource "google_service_account_iam_member" "web_token_creator" {
+  service_account_id = google_service_account.web.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.web.email}"
+}
+
 # Build Service Account (for Cloud Build triggers)
 resource "google_service_account" "build" {
   account_id   = "sa-ai-notes-build"
