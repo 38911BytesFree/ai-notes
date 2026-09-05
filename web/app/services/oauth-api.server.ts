@@ -8,7 +8,8 @@ export interface OAuthClientRecord {
   grant_types: string[];
   response_types: string[];
   token_endpoint_auth_method: string;
-  scopes: string[];
+  scope?: string;
+  scopes?: string[];
   created_at?: string;
 }
 
