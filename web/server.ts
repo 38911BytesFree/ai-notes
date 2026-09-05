@@ -96,17 +96,17 @@ app.use(
     resourceName: "AI Notes",
     clientRegistrationOptions: {
       rateLimit: {
-        validate: { xForwardedForHeader: false },
+        validate: false,
       },
     },
     authorizationOptions: {
       rateLimit: {
-        validate: { xForwardedForHeader: false },
+        validate: false,
       },
     },
     tokenOptions: {
       rateLimit: {
-        validate: { xForwardedForHeader: false },
+        validate: false,
       },
     },
   })
