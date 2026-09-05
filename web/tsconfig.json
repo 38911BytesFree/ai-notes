@@ -3,6 +3,8 @@
     "server.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
+    "mcp/**/*.ts",
+    "oauth/**/*.ts",
     ".react-router/types/**/*"
   ],
   "compilerOptions": {

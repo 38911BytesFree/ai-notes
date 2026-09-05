@@ -16,7 +16,7 @@ import type { IdTokenClient } from "google-auth-library";
 // `X-Serverless-Authorization` header — Cloud Run validates that one for IAM and
 // forwards `Authorization` to the container untouched.
 
-const BACKEND_URL = (process.env.BACKEND_URL ?? "").replace(/\/$/, "");
+export const BACKEND_URL = (process.env.BACKEND_URL ?? "").replace(/\/$/, "");
 
 /**
  * Whether to attach a Google ID token to backend requests.
@@ -53,30 +53,49 @@ async function getIdTokenHeader(): Promise<string | null> {
   return record.Authorization ?? record.authorization ?? null;
 }
 
+export interface BackendFetchOptions {
+  service?: boolean;
+}
+
 /**
  * fetch() wrapper for all calls to the Go backend.
  *
  * When ID-token auth is enabled it adds the `X-Serverless-Authorization` header
  * carrying a Google-signed ID token; otherwise it is a transparent passthrough.
  * The caller still sets `Authorization: Bearer <firebase-token>` as usual.
+ *
+ * When `service` is true and ID-token auth is enabled, it also sets
+ * `Authorization: Bearer <google id token>`.
+ * When `service` is true and ID-token auth is disabled locally, it sets
+ * `Authorization: Bearer ${SERVICE_DEV_TOKEN}` instead.
  */
 export async function backendFetch(
   url: string | URL,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options?: BackendFetchOptions
 ): Promise<Response> {
-  if (!idTokenEnabled()) {
-    return fetch(url, init);
-  }
-
-  const idToken = await getIdTokenHeader();
-  if (!idToken) {
-    throw new Error(
-      "backendFetch: ID-token auth is enabled but no token could be obtained " +
-        `(check that the runtime service account can mint ID tokens for ${BACKEND_URL}).`
-    );
-  }
-
   const headers = new Headers(init.headers);
-  headers.set("X-Serverless-Authorization", idToken);
+
+  if (idTokenEnabled()) {
+    const idToken = await getIdTokenHeader();
+    if (!idToken) {
+      throw new Error(
+        "backendFetch: ID-token auth is enabled but no token could be obtained " +
+          `(check that the runtime service account can mint ID tokens for ${BACKEND_URL}).`
+      );
+    }
+    headers.set("X-Serverless-Authorization", idToken);
+    if (options?.service) {
+      headers.set("Authorization", idToken);
+    }
+  } else if (options?.service) {
+    const devToken = process.env.SERVICE_DEV_TOKEN?.trim();
+    if (devToken) {
+      const bearer = devToken.startsWith("Bearer ") ? devToken : `Bearer ${devToken}`;
+      headers.set("Authorization", bearer);
+    }
+  }
+
   return fetch(url, { ...init, headers });
 }
+
