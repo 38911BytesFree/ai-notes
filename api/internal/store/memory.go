@@ -414,6 +414,18 @@ func (m *MemoryStore) CreateOAuthCode(ctx context.Context, codeHash string, code
 	return nil
 }
 
+func (m *MemoryStore) GetOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	code, ok := m.oauthCodes[codeHash]
+	if !ok || code.Consumed || m.now().After(code.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+	cp := *code
+	return &cp, nil
+}
+
 func (m *MemoryStore) ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

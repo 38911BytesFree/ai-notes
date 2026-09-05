@@ -17,4 +17,5 @@ export default [
   route("api/notes/:id/transcript", "routes/api.notes.$id.transcript.ts"),
   route("api/me/export", "routes/api.me.export.ts"),
   route("api/pats", "routes/api.pats.ts"),
+  route("oauth/consent", "routes/oauth.consent.tsx"),
 ] satisfies RouteConfig;

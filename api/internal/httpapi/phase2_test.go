@@ -171,6 +171,66 @@ func TestOAuthConsumeSingleUse(t *testing.T) {
 	}
 }
 
+func TestOAuthGetCodeLookup(t *testing.T) {
+	tc := setupPhase2Context(t)
+	codeHash := "code-hash-lookup-test"
+
+	// 1. Create code
+	createReq := CreateOAuthCodeRequest{
+		CodeHash:            codeHash,
+		ClientID:            "client-1",
+		UID:                 tc.uid,
+		Scopes:              []string{"notes:read"},
+		CodeChallenge:       "challenge-xyz",
+		CodeChallengeMethod: "S256",
+		RedirectURI:         "https://example.com/callback",
+		Resource:            "https://ai-notes-web.run.app/mcp",
+		ExpiresAt:           time.Now().UTC().Add(10 * time.Minute),
+	}
+	body, _ := json.Marshal(createReq)
+	req := httptest.NewRequest(http.MethodPost, "/v1/oauth/codes", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	w := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 on create code, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 2. Lookup before consume -> 200
+	getReq := httptest.NewRequest(http.MethodGet, "/v1/oauth/codes/"+codeHash, nil)
+	getReq.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	wGet := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(wGet, getReq)
+	if wGet.Code != http.StatusOK {
+		t.Fatalf("expected 200 on code lookup, got %d: %s", wGet.Code, wGet.Body.String())
+	}
+	var c store.OAuthCode
+	if err := json.NewDecoder(wGet.Body).Decode(&c); err != nil {
+		t.Fatalf("failed to decode code: %v", err)
+	}
+	if c.CodeChallenge != "challenge-xyz" {
+		t.Errorf("expected CodeChallenge 'challenge-xyz', got %q", c.CodeChallenge)
+	}
+
+	// 3. Consume code
+	consumeReq := httptest.NewRequest(http.MethodPost, "/v1/oauth/codes/"+codeHash+"/consume", nil)
+	consumeReq.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	wConsume := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(wConsume, consumeReq)
+	if wConsume.Code != http.StatusOK {
+		t.Fatalf("expected 200 on consume, got %d", wConsume.Code)
+	}
+
+	// 4. Lookup after consume -> 404
+	getReq2 := httptest.NewRequest(http.MethodGet, "/v1/oauth/codes/"+codeHash, nil)
+	getReq2.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	wGet2 := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(wGet2, getReq2)
+	if wGet2.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 on consumed code lookup, got %d", wGet2.Code)
+	}
+}
+
 func TestOAuthRotateRefusesSecondUse(t *testing.T) {
 	tc := setupPhase2Context(t)
 	refreshHash := "refresh-hash-123"

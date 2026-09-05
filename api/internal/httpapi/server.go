@@ -123,6 +123,7 @@ func NewServer(deps ServerDeps) *Server {
 	mux.Handle("POST /v1/oauth/clients", s.requireService(http.HandlerFunc(s.handleRegisterOAuthClient)))
 	mux.Handle("GET /v1/oauth/clients/{client_id}", s.requireService(http.HandlerFunc(s.handleGetOAuthClient)))
 	mux.Handle("POST /v1/oauth/codes", s.requireService(http.HandlerFunc(s.handleCreateOAuthCode)))
+	mux.Handle("GET /v1/oauth/codes/{hash}", s.requireService(http.HandlerFunc(s.handleGetOAuthCode)))
 	mux.Handle("POST /v1/oauth/codes/{hash}/consume", s.requireService(http.HandlerFunc(s.handleConsumeOAuthCode)))
 	mux.Handle("POST /v1/oauth/tokens", s.requireService(http.HandlerFunc(s.handleCreateOAuthToken)))
 	mux.Handle("GET /v1/oauth/tokens/{hash}", s.requireService(http.HandlerFunc(s.handleGetOAuthToken)))

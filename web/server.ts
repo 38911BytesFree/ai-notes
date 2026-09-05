@@ -4,8 +4,10 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { requireBearerAuth } from "@modelcontextprotocol/express";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler } from "@modelcontextprotocol/server";
+import { mcpAuthRouter } from "@modelcontextprotocol/server-legacy/auth";
 import { verifier, getMcpResourceMetadataUrl } from "./mcp/verifier";
 import { buildServer } from "./mcp/server";
+import { oauthProvider } from "./oauth/provider";
 
 const app = express();
 app.use(compression());
@@ -76,6 +78,23 @@ const mcpNodeHandler = toNodeHandler(mcpHandler);
 app.use("/mcp", bearerAuthMiddleware, (req: Request, res: Response) => {
   mcpNodeHandler(req, res, req.body);
 });
+
+// =============================================================================
+// OAUTH AUTHORIZATION SERVER
+// =============================================================================
+const issuerBase = process.env.PUBLIC_BASE_URL?.trim() || `http://localhost:${PORT}`;
+const issuerUrl = new URL(issuerBase);
+const resourceServerUrl = new URL("/mcp", issuerUrl);
+
+app.use(
+  mcpAuthRouter({
+    provider: oauthProvider,
+    issuerUrl,
+    resourceServerUrl,
+    scopesSupported: ["notes:read", "notes:write"],
+    resourceName: "AI Notes",
+  })
+);
 
 
 if (process.env.NODE_ENV === "production") {

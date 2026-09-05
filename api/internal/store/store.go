@@ -46,6 +46,7 @@ type Store interface {
 	CreateOAuthClient(ctx context.Context, client *OAuthClient) error
 	GetOAuthClient(ctx context.Context, clientID string) (*OAuthClient, error)
 	CreateOAuthCode(ctx context.Context, codeHash string, code *OAuthCode) error
+	GetOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error)
 	ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error)
 	CreateOAuthToken(ctx context.Context, tokenHash string, token *OAuthToken) error
 	GetOAuthToken(ctx context.Context, tokenHash string) (*OAuthToken, error)

@@ -86,6 +86,19 @@ export async function storeAuthorizationCode(code: OAuthCodeRecord): Promise<voi
   }
 }
 
+export async function getAuthorizationCode(codeHash: string): Promise<OAuthCodeRecord | null> {
+  const url = `${BACKEND_URL}/v1/oauth/codes/${encodeURIComponent(codeHash)}`;
+  const res = await backendFetch(url, { method: "GET" }, { service: true });
+
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to get OAuth code: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as OAuthCodeRecord;
+}
+
 export async function consumeAuthorizationCode(codeHash: string): Promise<OAuthCodeRecord | null> {
   const url = `${BACKEND_URL}/v1/oauth/codes/${encodeURIComponent(codeHash)}/consume`;
   const res = await backendFetch(url, { method: "POST" }, { service: true });

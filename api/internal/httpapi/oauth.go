@@ -104,6 +104,29 @@ func (s *Server) handleCreateOAuthCode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+func (s *Server) handleGetOAuthCode(w http.ResponseWriter, r *http.Request) {
+	hash := r.PathValue("hash")
+	if hash == "" {
+		writeError(w, ErrCodeNotFound)
+		return
+	}
+
+	code, err := s.store.GetOAuthCode(r.Context(), hash)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, ErrCodeNotFound)
+			return
+		}
+		s.logger.Error("failed to get oauth code", "error", err.Error())
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(code)
+}
+
 func (s *Server) handleConsumeOAuthCode(w http.ResponseWriter, r *http.Request) {
 	hash := r.PathValue("hash")
 	if hash == "" {

@@ -491,6 +491,26 @@ func (s *FirestoreStore) CreateOAuthCode(ctx context.Context, codeHash string, c
 	return err
 }
 
+func (s *FirestoreStore) GetOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
+	doc, err := s.client.Collection("oauth_codes").Doc(codeHash).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var code OAuthCode
+	if err := doc.DataTo(&code); err != nil {
+		return nil, err
+	}
+
+	if code.Consumed || s.now().After(code.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+	return &code, nil
+}
+
 func (s *FirestoreStore) ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
 	docRef := s.client.Collection("oauth_codes").Doc(codeHash)
 	now := s.now()
