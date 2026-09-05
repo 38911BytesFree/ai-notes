@@ -46,7 +46,7 @@ resource "google_cloudbuild_trigger" "web_deploy" {
     }
   }
 
-  included_files = ["web/**", "cloudbuild/web.yaml"]
+  included_files = ["web/**", "cloudbuild/web.yaml", "pnpm-lock.yaml", "pnpm-workspace.yaml", "package.json"]
 
   filename = "cloudbuild/web.yaml"
 

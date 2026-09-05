@@ -1,0 +1,42 @@
+# Build context for the web image (context is the repo root so the build can
+# use the single workspace lockfile). Everything below is either unnecessary in
+# the image, secret, or an artifact that must never be copied in.
+#
+# Copying web/build in particular is what broke hydration: Tailwind's source
+# scanning picked up a previous build's output during the server pass and
+# emitted a different stylesheet than the client pass. app.css now scopes its
+# sources explicitly, and keeping build artifacts out of the context removes the
+# second way that can happen.
+
+.git
+.gitignore
+.github
+
+# Dependencies are installed inside the image from the lockfile.
+node_modules
+**/node_modules
+
+# Build artifacts.
+web/build
+web/.react-router
+api/bin
+
+# Not needed to build or run the web service.
+api
+infra
+docs
+scripts
+firebase.json
+firestore.rules
+firestore.indexes.json
+README.md
+CLAUDE.md
+GEMINI.md
+
+# Secrets and local state.
+.env
+.env.*
+!.env.example
+*.log
+*.tfstate
+*.tfstate.*

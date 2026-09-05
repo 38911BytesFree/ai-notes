@@ -1,5 +1,7 @@
 # Build + deploy pipeline for the React Router frontend (ai-notes-web) Cloud Run service.
-# Built on every push to main affecting web/** or cloudbuild/web.yaml.
+# Built on every push to main affecting web/**, the workspace manifests, or
+# cloudbuild/web.yaml. The build context is the repo root so the image installs
+# from the single workspace pnpm-lock.yaml.
 steps:
   - id: Build
     name: gcr.io/cloud-builders/docker
@@ -23,7 +25,7 @@ steps:
       - VITE_FIREBASE_MEASUREMENT_ID=$_VITE_FIREBASE_MEASUREMENT_ID
       - -t
       - $_AR_HOSTNAME/$PROJECT_ID/ai-notes/$_SERVICE_NAME:$COMMIT_SHA
-      - web
+      - .
 
   - id: PushSHA
     name: gcr.io/cloud-builders/docker
