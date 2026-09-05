@@ -48,6 +48,31 @@ pnpm dev
 
 Press `Ctrl+C` in the terminal to gracefully terminate all child processes.
 
+## Model Context Protocol (MCP)
+
+AI Notes exposes a remote Model Context Protocol (MCP) streamable HTTP server endpoint at `/mcp` (e.g. `https://ai-notes-web-g3q7qn4imq-ew.a.run.app/mcp` or `http://127.0.0.1:5173/mcp` locally).
+
+### Available Tools
+- `save_note`: Saves a pre-summarised note directly into your Firestore library with 768-dimensional Vertex AI embeddings without consuming your monthly web ingest quota.
+- `search_notes`: Semantic vector search (`FindNearest` cosine distance) returning the most relevant notes matching a query.
+- `get_note`: Retrieves full note details and optionally decompresses the raw conversation transcript.
+
+### Authentication
+- **Command-line / IDE Clients (Claude Code, Cursor)**: Authenticate with Personal Access Tokens (`ain_pat_...`) created in the web UI at `/app/connect`.
+  ```bash
+  claude mcp add --transport http ai-notes https://ai-notes-web-g3q7qn4imq-ew.a.run.app/mcp --header "Authorization: Bearer <token>"
+  ```
+- **Hosted Web Clients (Claude.ai, ChatGPT)**: Authenticate via OAuth 2.1 authorization code flow with PKCE and Dynamic Client Registration (RFC 7591) at `/register` and `/authorize`. Provide the MCP endpoint URL (`https://ai-notes-web-g3q7qn4imq-ew.a.run.app/mcp`) in your client settings.
+
+### Local Testing with MCP Inspector
+1. Start the local stack with `pnpm dev`.
+2. Visit `http://127.0.0.1:5173/app/connect` and generate a Personal Access Token.
+3. In a separate terminal, launch the MCP Inspector:
+   ```bash
+   npx @modelcontextprotocol/inspector
+   ```
+4. Connect using transport **HTTP**, URL `http://127.0.0.1:5173/mcp`, with header `Authorization: Bearer <your_token>`.
+
 ## Environment Variables
 
 | Variable | Service | Purpose | Default |
@@ -59,8 +84,14 @@ Press `Ctrl+C` in the terminal to gracefully terminate all child processes.
 | `INGEST_MONTHLY_LIMIT` | api | Monthly free ingest quota per user | `30` |
 | `SUMMARISER_MAX_CHARS` | api | Transcript summarisation truncation character budget | `200000` |
 | `USE_FAKE_AI` | api (local) | Wires deterministic fake AI and memory blob store | `false` (set `true` in `pnpm dev`) |
+| `SERVICE_AUDIENCE` | api | Expected `aud` claim on service tokens (API URL) | Required in prod |
+| `WEB_SERVICE_ACCOUNT` | api | Expected caller email on service tokens | Required in prod |
+| `SERVICE_DEV_TOKEN` | api, web | Static bearer token accepted for local service auth | `dev-service-token` |
 | `BACKEND_URL` | web | Private Go API base URL | `http://127.0.0.1:8000` |
-| `SESSION_SECRET` | web | Iron session cookie encryption secret | Required |
+| `PUBLIC_BASE_URL` | web | Canonical issuer and resource origin URL | `http://127.0.0.1:5173` |
+| `OAUTH_ACCESS_TOKEN_TTL_SECONDS` | web | OAuth access token lifetime in seconds | `3600` |
+| `MCP_ALLOWED_HOSTS` | web | Optional comma-separated hosts allowed by MCP handler | None |
+| `SESSION_SECRET` | web | Session cookie encryption secret | Required |
 | `PORT` | web | Express server listen port | `5173` local, `8080` prod |
 
 ## Tests and Verification

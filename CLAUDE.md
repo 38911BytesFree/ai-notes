@@ -37,6 +37,9 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
   - Google Identity authentication orchestration via Firebase Client SDK.
   - Rate limiting (token bucket per IP) and share URL provider allowlist verification.
   - Translates symbolic API error codes into user-friendly copy. Never touches GCP services directly.
+  - Package layout:
+    - `mcp/`: MCP server implementation (`server.ts`), tools (`tools/save-note.ts`, `search-notes.ts`, `get-note.ts`), bearer token verifier (`verifier.ts`), and Firebase Custom Token identity resolver (`identity.ts`).
+    - `oauth/`: OAuth 2.1 server provider (`provider.ts`), client registration store (`clients-store.ts`), pending consent cookie (`pending.ts`), and token generation/hashing (`tokens.ts`).
 
 ## Developer Commands
 
@@ -54,15 +57,17 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 1. **No prose errors in Go API responses**: Every error response is a JSON object with at least a `code` field drawn strictly from the closed set defined in `api/internal/httpapi/errors.go` (e.g. `unauthenticated`, `not_found`, `invalid_argument`, `unsupported_provider`, `fetch_failed`, `fetch_blocked`, `transcript_empty`, `transcript_too_long`, `summarise_failed`, `ingest_limit_reached`, `internal_error`).
 2. **Go API is never public**: It has no `allUsers` invoker binding in Terraform, its Cloud Run ingress is internal-only, and its tests verify rejection of unauthenticated requests.
 3. **Only Go API touches cloud data services**: The Go API is the only service with access to Firestore, Cloud Storage, or Vertex AI. The Web BFF never calls GCP data APIs directly.
-4. **Node BFF owns the session cookie**: The browser never holds a long-lived database or API credential.
-5. **Least privilege on service accounts**: No `owner`, `editor`, or broad admin roles on runtime service accounts (`sa-ai-notes-api`, `sa-ai-notes-web`).
-6. **No checked-in secrets**: Any file containing secrets (`.env`, `*-service-account*.json`, `*.pem`, `*.key`) is gitignored. CI rejects commits with secret keys.
-7. **Monorepo, not polyrepo**: One repo, one commit history, one CI pipeline.
-8. **Explicit dependencies only**: No required global tools beyond standard runtimes.
-9. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
-10. **No premature abstraction**: Write concrete implementations first.
-11. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
-12. **Never suppress warnings or errors**: Never suppress warnings, ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
+4. **Go `/v1/oauth/*` routes are service-auth only**: These endpoints accept only service authentication (`requireService` with verified Google ID token matching `SERVICE_AUDIENCE` and `WEB_SERVICE_ACCOUNT`, or `SERVICE_DEV_TOKEN` in local dev). They never accept user tokens. Conversely, user routes never accept service tokens.
+5. **Node BFF owns the session cookie**: The browser never holds a long-lived database or API credential.
+6. **Least privilege on service accounts**: No `owner`, `editor`, or broad admin roles on runtime service accounts (`sa-ai-notes-api`, `sa-ai-notes-web`).
+7. **No checked-in secrets**: Any file containing secrets (`.env`, `*-service-account*.json`, `*.pem`, `*.key`) is gitignored. CI rejects commits with secret keys.
+8. **Monorepo, not polyrepo**: One repo, one commit history, one CI pipeline.
+9. **Explicit dependencies only**: No required global tools beyond standard runtimes.
+10. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
+11. **No premature abstraction**: Write concrete implementations first.
+12. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
+13. **Pin legacy auth package deliberately**: `@modelcontextprotocol/server-legacy/auth` is pinned deliberately for the OAuth authorization server router, Dynamic Client Registration, and RFC 9728 protected resource metadata endpoints.
+14. **Never suppress warnings or errors**: Never suppress warnings, ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
 
 ## Deployment Notes
 
