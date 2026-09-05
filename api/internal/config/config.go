@@ -18,6 +18,9 @@ type Config struct {
 	IngestMonthlyLimit        int
 	SummariserMaxChars        int
 	UseFakeAI                 bool
+	ServiceAudience           string
+	WebServiceAccount         string
+	ServiceDevToken           string
 }
 
 func Load() (*Config, error) {
@@ -62,6 +65,10 @@ func Load() (*Config, error) {
 
 	useFakeAI := os.Getenv("USE_FAKE_AI") == "true"
 
+	serviceAudience := os.Getenv("SERVICE_AUDIENCE")
+	webServiceAccount := os.Getenv("WEB_SERVICE_ACCOUNT")
+	serviceDevToken := os.Getenv("SERVICE_DEV_TOKEN")
+
 	return &Config{
 		BindAddress:              bindAddr,
 		GoogleCloudProject:       projectID,
@@ -73,6 +80,9 @@ func Load() (*Config, error) {
 		IngestMonthlyLimit:        ingestMonthlyLimit,
 		SummariserMaxChars:        summariserMaxChars,
 		UseFakeAI:                 useFakeAI,
+		ServiceAudience:           serviceAudience,
+		WebServiceAccount:         webServiceAccount,
+		ServiceDevToken:           serviceDevToken,
 	}, nil
 }
 

@@ -14,26 +14,28 @@ import (
 )
 
 type ServerDeps struct {
-	Config     *config.Config
-	Store      store.Store
-	BlobStore  store.BlobStore
-	Verifier   TokenVerifier
-	Pipeline   *ingest.Pipeline
-	Embedder   ai.Embedder
-	AuthClient AuthUserDeleter
-	Logger     *slog.Logger
+	Config           *config.Config
+	Store            store.Store
+	BlobStore        store.BlobStore
+	Verifier         TokenVerifier
+	ServiceValidator ServiceTokenValidator
+	Pipeline         *ingest.Pipeline
+	Embedder         ai.Embedder
+	AuthClient       AuthUserDeleter
+	Logger           *slog.Logger
 }
 
 type Server struct {
-	cfg        *config.Config
-	store      store.Store
-	blobStore  store.BlobStore
-	verifier   TokenVerifier
-	pipeline   *ingest.Pipeline
-	embedder   ai.Embedder
-	authClient AuthUserDeleter
-	logger     *slog.Logger
-	handler    http.Handler
+	cfg              *config.Config
+	store            store.Store
+	blobStore        store.BlobStore
+	verifier         TokenVerifier
+	serviceValidator ServiceTokenValidator
+	pipeline         *ingest.Pipeline
+	embedder         ai.Embedder
+	authClient       AuthUserDeleter
+	logger           *slog.Logger
+	handler          http.Handler
 }
 
 func NewCloudLoggingLogger() *slog.Logger {
@@ -70,15 +72,21 @@ func NewServer(deps ServerDeps) *Server {
 		logger = NewCloudLoggingLogger()
 	}
 
+	serviceVal := deps.ServiceValidator
+	if serviceVal == nil {
+		serviceVal = &GoogleIDTokenValidator{}
+	}
+
 	s := &Server{
-		cfg:        deps.Config,
-		store:      deps.Store,
-		blobStore:  deps.BlobStore,
-		verifier:   deps.Verifier,
-		pipeline:   deps.Pipeline,
-		embedder:   deps.Embedder,
-		authClient: deps.AuthClient,
-		logger:     logger,
+		cfg:              deps.Config,
+		store:            deps.Store,
+		blobStore:        deps.BlobStore,
+		verifier:         deps.Verifier,
+		serviceValidator: serviceVal,
+		pipeline:         deps.Pipeline,
+		embedder:         deps.Embedder,
+		authClient:       deps.AuthClient,
+		logger:           logger,
 	}
 
 	mux := http.NewServeMux()
@@ -94,6 +102,7 @@ func NewServer(deps ServerDeps) *Server {
 	mux.Handle("POST /v1/ingest", s.requireUser(http.HandlerFunc(s.handleIngest)))
 
 	// Notes endpoints
+	mux.Handle("POST /v1/notes", s.requireUser(http.HandlerFunc(s.handleCreateNote)))
 	mux.Handle("GET /v1/notes", s.requireUser(http.HandlerFunc(s.handleListNotes)))
 	mux.Handle("GET /v1/notes/search", s.requireUser(http.HandlerFunc(s.handleSearchNotes)))
 	mux.Handle("GET /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleGetNote)))
@@ -103,6 +112,22 @@ func NewServer(deps ServerDeps) *Server {
 	// Transcript endpoints
 	mux.Handle("GET /v1/notes/{id}/transcript", s.requireUser(http.HandlerFunc(s.handleGetTranscript)))
 	mux.Handle("DELETE /v1/notes/{id}/transcript", s.requireUser(http.HandlerFunc(s.handleDeleteTranscript)))
+
+	// PAT user endpoints
+	mux.Handle("GET /v1/me/pats", s.requireUser(http.HandlerFunc(s.handleListPATs)))
+	mux.Handle("POST /v1/me/pats", s.requireUser(http.HandlerFunc(s.handleCreatePAT)))
+	mux.Handle("DELETE /v1/me/pats/{id}", s.requireUser(http.HandlerFunc(s.handleDeletePAT)))
+
+	// OAuth service endpoints
+	mux.Handle("GET /v1/oauth/pats/{hash}", s.requireService(http.HandlerFunc(s.handleGetPATByHash)))
+	mux.Handle("POST /v1/oauth/clients", s.requireService(http.HandlerFunc(s.handleRegisterOAuthClient)))
+	mux.Handle("GET /v1/oauth/clients/{client_id}", s.requireService(http.HandlerFunc(s.handleGetOAuthClient)))
+	mux.Handle("POST /v1/oauth/codes", s.requireService(http.HandlerFunc(s.handleCreateOAuthCode)))
+	mux.Handle("POST /v1/oauth/codes/{hash}/consume", s.requireService(http.HandlerFunc(s.handleConsumeOAuthCode)))
+	mux.Handle("POST /v1/oauth/tokens", s.requireService(http.HandlerFunc(s.handleCreateOAuthToken)))
+	mux.Handle("GET /v1/oauth/tokens/{hash}", s.requireService(http.HandlerFunc(s.handleGetOAuthToken)))
+	mux.Handle("POST /v1/oauth/tokens/{hash}/rotate", s.requireService(http.HandlerFunc(s.handleRotateOAuthToken)))
+	mux.Handle("DELETE /v1/oauth/tokens/{hash}", s.requireService(http.HandlerFunc(s.handleRevokeOAuthToken)))
 
 	s.handler = s.accessLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, pattern := mux.Handler(r)

@@ -324,3 +324,103 @@ func (s *Server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+type CreateNoteRequest struct {
+	Title          string            `json:"title"`
+	Summary        string            `json:"summary"`
+	Takeaways      []string          `json:"takeaways"`
+	CodeBlocks     []notes.CodeBlock `json:"code_blocks,omitempty"`
+	Category       string            `json:"category,omitempty"`
+	Tags           []string          `json:"tags,omitempty"`
+	Source         notes.Source      `json:"source"`
+	Transcript     *notes.Transcript `json:"transcript,omitempty"`
+	KeepTranscript *bool             `json:"keep_transcript,omitempty"`
+}
+
+var allowedNoteProviders = map[string]bool{
+	"chatgpt":    true,
+	"claude":     true,
+	"gemini":     true,
+	"grok":       true,
+	"perplexity": true,
+	"other":      true,
+}
+
+func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
+	tok, ok := UserFromContext(r.Context())
+	if !ok || tok == nil {
+		writeError(w, ErrCodeUnauthenticated)
+		return
+	}
+
+	var req CreateNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	if strings.TrimSpace(req.Summary) == "" || len(req.Takeaways) < 1 {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	provider := strings.ToLower(strings.TrimSpace(req.Source.Provider))
+	if !allowedNoteProviders[provider] {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+	req.Source.Provider = provider
+
+	keepTranscript := true
+	if req.KeepTranscript != nil {
+		keepTranscript = *req.KeepTranscript
+	} else {
+		if user, err := s.store.GetUser(r.Context(), tok.UID); err == nil {
+			keepTranscript = user.DefaultKeepTranscript
+		}
+	}
+
+	noteID, err := notes.NewNoteID()
+	if err != nil {
+		s.logger.Error("failed to generate note id", slog.String("error", err.Error()))
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	now := time.Now().UTC()
+	if req.Source.FetchedAt.IsZero() {
+		req.Source.FetchedAt = now
+	}
+
+	note := &notes.Note{
+		ID:         noteID,
+		OwnerUID:   tok.UID,
+		Visibility: "private",
+		Title:      req.Title,
+		Summary:    req.Summary,
+		Takeaways:  req.Takeaways,
+		CodeBlocks: req.CodeBlocks,
+		Category:   notes.Normalise(req.Category),
+		Tags:       req.Tags,
+		Source:     req.Source,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	if s.pipeline == nil {
+		s.logger.Error("pipeline not configured")
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	savedNote, err := s.pipeline.SaveNote(r.Context(), note, req.Transcript, keepTranscript)
+	if err != nil {
+		s.logger.Error("failed to save note", slog.String("error", err.Error()))
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(savedNote)
+}

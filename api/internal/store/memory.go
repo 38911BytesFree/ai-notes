@@ -11,17 +11,25 @@ import (
 )
 
 type MemoryStore struct {
-	mu    sync.RWMutex
-	users map[string]User
-	notes map[string]*notes.Note
-	Clock func() time.Time
+	mu           sync.RWMutex
+	users        map[string]User
+	notes        map[string]*notes.Note
+	oauthClients map[string]*OAuthClient
+	oauthCodes   map[string]*OAuthCode
+	oauthTokens  map[string]*OAuthToken
+	patTokens    map[string]*PATToken
+	Clock        func() time.Time
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		users: make(map[string]User),
-		notes: make(map[string]*notes.Note),
-		Clock: func() time.Time { return time.Now().UTC() },
+		users:        make(map[string]User),
+		notes:        make(map[string]*notes.Note),
+		oauthClients: make(map[string]*OAuthClient),
+		oauthCodes:   make(map[string]*OAuthCode),
+		oauthTokens:  make(map[string]*OAuthToken),
+		patTokens:    make(map[string]*PATToken),
+		Clock:        func() time.Time { return time.Now().UTC() },
 	}
 }
 
@@ -374,4 +382,155 @@ func cosineDistance(a []float32, b []float32) float64 {
 		sim = -1.0
 	}
 	return 1.0 - sim
+}
+
+func (m *MemoryStore) CreateOAuthClient(ctx context.Context, client *OAuthClient) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cp := *client
+	m.oauthClients[client.ClientID] = &cp
+	return nil
+}
+
+func (m *MemoryStore) GetOAuthClient(ctx context.Context, clientID string) (*OAuthClient, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	client, ok := m.oauthClients[clientID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := *client
+	return &cp, nil
+}
+
+func (m *MemoryStore) CreateOAuthCode(ctx context.Context, codeHash string, code *OAuthCode) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cp := *code
+	m.oauthCodes[codeHash] = &cp
+	return nil
+}
+
+func (m *MemoryStore) ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	code, ok := m.oauthCodes[codeHash]
+	if !ok || code.Consumed || m.now().After(code.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+
+	code.Consumed = true
+	cp := *code
+	return &cp, nil
+}
+
+func (m *MemoryStore) CreateOAuthToken(ctx context.Context, tokenHash string, token *OAuthToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cp := *token
+	m.oauthTokens[tokenHash] = &cp
+	return nil
+}
+
+func (m *MemoryStore) GetOAuthToken(ctx context.Context, tokenHash string) (*OAuthToken, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	token, ok := m.oauthTokens[tokenHash]
+	if !ok || token.Revoked || m.now().After(token.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+	cp := *token
+	return &cp, nil
+}
+
+func (m *MemoryStore) RotateOAuthToken(ctx context.Context, refreshHash string) (*OAuthToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	token, ok := m.oauthTokens[refreshHash]
+	if !ok || token.Kind != "refresh" || token.Revoked || m.now().After(token.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+
+	token.Revoked = true
+	cp := *token
+	return &cp, nil
+}
+
+func (m *MemoryStore) RevokeOAuthToken(ctx context.Context, tokenHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if token, ok := m.oauthTokens[tokenHash]; ok {
+		token.Revoked = true
+	}
+	return nil
+}
+
+func (m *MemoryStore) CreatePAT(ctx context.Context, tokenHash string, pat *PATToken) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cp := *pat
+	m.patTokens[tokenHash] = &cp
+	return nil
+}
+
+func (m *MemoryStore) ListPATs(ctx context.Context, uid string) ([]*PATToken, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var result []*PATToken
+	for _, p := range m.patTokens {
+		if p.UID == uid && p.RevokedAt == nil {
+			cp := *p
+			cp.TokenHash = ""
+			result = append(result, &cp)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+
+	return result, nil
+}
+
+func (m *MemoryStore) RevokePAT(ctx context.Context, uid, patID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, p := range m.patTokens {
+		if p.UID == uid && p.ID == patID && p.RevokedAt == nil {
+			now := m.now()
+			p.RevokedAt = &now
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
+func (m *MemoryStore) GetPATByHash(ctx context.Context, tokenHash string) (*PATToken, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	pat, ok := m.patTokens[tokenHash]
+	if !ok || pat.RevokedAt != nil {
+		return nil, ErrNotFound
+	}
+
+	now := m.now()
+	if pat.LastUsedAt == nil || now.Sub(*pat.LastUsedAt) >= time.Hour {
+		pat.LastUsedAt = &now
+	}
+
+	cp := *pat
+	cp.TokenHash = ""
+	return &cp, nil
 }

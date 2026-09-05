@@ -464,3 +464,229 @@ func (s *FirestoreStore) GetNotesForExport(ctx context.Context, uid string) ([]*
 
 	return result, nil
 }
+
+func (s *FirestoreStore) CreateOAuthClient(ctx context.Context, client *OAuthClient) error {
+	_, err := s.client.Collection("oauth_clients").Doc(client.ClientID).Set(ctx, client)
+	return err
+}
+
+func (s *FirestoreStore) GetOAuthClient(ctx context.Context, clientID string) (*OAuthClient, error) {
+	doc, err := s.client.Collection("oauth_clients").Doc(clientID).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var client OAuthClient
+	if err := doc.DataTo(&client); err != nil {
+		return nil, err
+	}
+	return &client, nil
+}
+
+func (s *FirestoreStore) CreateOAuthCode(ctx context.Context, codeHash string, code *OAuthCode) error {
+	_, err := s.client.Collection("oauth_codes").Doc(codeHash).Set(ctx, code)
+	return err
+}
+
+func (s *FirestoreStore) ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error) {
+	docRef := s.client.Collection("oauth_codes").Doc(codeHash)
+	now := s.now()
+
+	var code OAuthCode
+	err := s.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := doc.DataTo(&code); err != nil {
+			return err
+		}
+
+		if code.Consumed || now.After(code.ExpiresAt) {
+			return ErrNotFound
+		}
+
+		code.Consumed = true
+		return tx.Set(docRef, code)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &code, nil
+}
+
+func (s *FirestoreStore) CreateOAuthToken(ctx context.Context, tokenHash string, token *OAuthToken) error {
+	_, err := s.client.Collection("oauth_tokens").Doc(tokenHash).Set(ctx, token)
+	return err
+}
+
+func (s *FirestoreStore) GetOAuthToken(ctx context.Context, tokenHash string) (*OAuthToken, error) {
+	doc, err := s.client.Collection("oauth_tokens").Doc(tokenHash).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var token OAuthToken
+	if err := doc.DataTo(&token); err != nil {
+		return nil, err
+	}
+
+	if token.Revoked || s.now().After(token.ExpiresAt) {
+		return nil, ErrNotFound
+	}
+	return &token, nil
+}
+
+func (s *FirestoreStore) RotateOAuthToken(ctx context.Context, refreshHash string) (*OAuthToken, error) {
+	docRef := s.client.Collection("oauth_tokens").Doc(refreshHash)
+	now := s.now()
+
+	var token OAuthToken
+	err := s.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := doc.DataTo(&token); err != nil {
+			return err
+		}
+
+		if token.Kind != "refresh" || token.Revoked || now.After(token.ExpiresAt) {
+			return ErrNotFound
+		}
+
+		token.Revoked = true
+		return tx.Set(docRef, token)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
+func (s *FirestoreStore) RevokeOAuthToken(ctx context.Context, tokenHash string) error {
+	docRef := s.client.Collection("oauth_tokens").Doc(tokenHash)
+	_, err := docRef.Update(ctx, []firestore.Update{
+		{Path: "revoked", Value: true},
+	})
+	if err != nil && status.Code(err) != codes.NotFound {
+		return err
+	}
+	return nil
+}
+
+func (s *FirestoreStore) CreatePAT(ctx context.Context, tokenHash string, pat *PATToken) error {
+	_, err := s.client.Collection("pat_tokens").Doc(tokenHash).Set(ctx, pat)
+	return err
+}
+
+func (s *FirestoreStore) ListPATs(ctx context.Context, uid string) ([]*PATToken, error) {
+	q := s.client.Collection("pat_tokens").
+		Where("uid", "==", uid).
+		OrderBy("created_at", firestore.Desc)
+
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	var result []*PATToken
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		var pat PATToken
+		if err := doc.DataTo(&pat); err != nil {
+			return nil, err
+		}
+
+		if pat.RevokedAt != nil {
+			continue
+		}
+
+		pat.TokenHash = ""
+		result = append(result, &pat)
+	}
+
+	return result, nil
+}
+
+func (s *FirestoreStore) RevokePAT(ctx context.Context, uid, patID string) error {
+	q := s.client.Collection("pat_tokens").
+		Where("uid", "==", uid).
+		Where("id", "==", patID).
+		Limit(1)
+
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	doc, err := iter.Next()
+	if err == iterator.Done {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	var pat PATToken
+	if err := doc.DataTo(&pat); err != nil {
+		return err
+	}
+	if pat.RevokedAt != nil {
+		return ErrNotFound
+	}
+
+	now := s.now()
+	_, err = doc.Ref.Update(ctx, []firestore.Update{
+		{Path: "revoked_at", Value: now},
+	})
+	return err
+}
+
+func (s *FirestoreStore) GetPATByHash(ctx context.Context, tokenHash string) (*PATToken, error) {
+	docRef := s.client.Collection("pat_tokens").Doc(tokenHash)
+	doc, err := docRef.Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var pat PATToken
+	if err := doc.DataTo(&pat); err != nil {
+		return nil, err
+	}
+
+	if pat.RevokedAt != nil {
+		return nil, ErrNotFound
+	}
+
+	now := s.now()
+	if pat.LastUsedAt == nil || now.Sub(*pat.LastUsedAt) >= time.Hour {
+		pat.LastUsedAt = &now
+		_, _ = docRef.Update(ctx, []firestore.Update{
+			{Path: "last_used_at", Value: now},
+		})
+	}
+
+	pat.TokenHash = ""
+	return &pat, nil
+}

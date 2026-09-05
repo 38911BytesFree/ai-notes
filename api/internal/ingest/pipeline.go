@@ -212,25 +212,33 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 		UpdatedAt: now,
 	}
 
+	return p.SaveNote(ctx, note, &transcript, keepTranscript)
+}
+
+// SaveNote validates, embeds, compresses/saves transcript if requested, and stores the note.
+// It is used by both Pipeline.Ingest and direct save (POST /v1/notes).
+func (p *Pipeline) SaveNote(ctx context.Context, note *notes.Note, transcript *notes.Transcript, keepTranscript bool) (*notes.Note, error) {
 	// Clean and truncate note to enforce Section 6 limits
 	notes.CleanAndTruncateNote(note)
 
-	// 6. Embed title + "\n" + summary + "\n" + takeaways joined
+	// Embed title + "\n" + summary + "\n" + takeaways joined
 	embedText := note.Title + "\n" + note.Summary + "\n" + strings.Join(note.Takeaways, "\n")
 	h := sha256.Sum256([]byte(embedText))
 	note.EmbeddingTextHash = hex.EncodeToString(h[:])
 	note.EmbeddingModel = "gemini-embedding-001"
 
-	vec, err := p.embedder.Embed(ctx, embedText, ai.TaskRetrievalDocument)
-	if err != nil {
-		p.logger.Error("embedding failed", slog.String("error", err.Error()))
-		return nil, ai.ErrEmbedFailed
+	if p.embedder != nil {
+		vec, err := p.embedder.Embed(ctx, embedText, ai.TaskRetrievalDocument)
+		if err != nil {
+			p.logger.Error("embedding failed", slog.String("error", err.Error()))
+			return nil, ai.ErrEmbedFailed
+		}
+		note.Embedding = firestore.Vector32(vec)
 	}
-	note.Embedding = firestore.Vector32(vec)
 
-	// 7. Store transcript object if keepTranscript is true
-	if keepTranscript && p.blobStore != nil {
-		gzData, err := gzipTranscript(transcript)
+	// Store transcript object if keepTranscript is true and transcript is provided
+	if keepTranscript && transcript != nil && len(transcript.Messages) > 0 && p.blobStore != nil {
+		gzData, err := gzipTranscript(*transcript)
 		if err == nil {
 			blobKey := fmt.Sprintf("transcripts/%s.json.gz", note.ID)
 			if putErr := p.blobStore.Put(ctx, blobKey, gzData); putErr != nil {

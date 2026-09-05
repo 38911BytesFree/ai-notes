@@ -41,4 +41,20 @@ type Store interface {
 	ListNotes(ctx context.Context, uid, category, cursor string, limit int) ([]*notes.Note, string, error)
 	SearchNotes(ctx context.Context, uid, category string, vector []float32, limit int) ([]*notes.SearchResult, error)
 	GetNotesForExport(ctx context.Context, uid string) ([]*notes.Note, error)
+
+	// OAuth operations
+	CreateOAuthClient(ctx context.Context, client *OAuthClient) error
+	GetOAuthClient(ctx context.Context, clientID string) (*OAuthClient, error)
+	CreateOAuthCode(ctx context.Context, codeHash string, code *OAuthCode) error
+	ConsumeOAuthCode(ctx context.Context, codeHash string) (*OAuthCode, error)
+	CreateOAuthToken(ctx context.Context, tokenHash string, token *OAuthToken) error
+	GetOAuthToken(ctx context.Context, tokenHash string) (*OAuthToken, error)
+	RotateOAuthToken(ctx context.Context, refreshHash string) (*OAuthToken, error)
+	RevokeOAuthToken(ctx context.Context, tokenHash string) error
+
+	// PAT operations
+	CreatePAT(ctx context.Context, tokenHash string, pat *PATToken) error
+	ListPATs(ctx context.Context, uid string) ([]*PATToken, error)
+	RevokePAT(ctx context.Context, uid, patID string) error
+	GetPATByHash(ctx context.Context, tokenHash string) (*PATToken, error)
 }
