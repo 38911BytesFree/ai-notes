@@ -33,7 +33,7 @@ func CleanAndTruncateNote(n *Note) {
 	n.Summary = TruncateString(strings.TrimSpace(n.Summary), MaxSummaryChars)
 
 	// Clean takeaways
-	var cleanedTakeaways []string
+	cleanedTakeaways := make([]string, 0)
 	for _, t := range n.Takeaways {
 		trimmed := strings.TrimSpace(t)
 		if trimmed != "" {
@@ -46,7 +46,7 @@ func CleanAndTruncateNote(n *Note) {
 	n.Takeaways = cleanedTakeaways
 
 	// Clean code blocks
-	var cleanedBlocks []CodeBlock
+	cleanedBlocks := make([]CodeBlock, 0)
 	for _, cb := range n.CodeBlocks {
 		cleanedBlocks = append(cleanedBlocks, CodeBlock{
 			Lang: strings.ToLower(strings.TrimSpace(cb.Lang)),
@@ -63,7 +63,7 @@ func CleanAndTruncateNote(n *Note) {
 
 	// Clean and deduplicate tags (lowercase, max 30 chars, max 10 tags)
 	seenTags := make(map[string]struct{})
-	var cleanedTags []string
+	cleanedTags := make([]string, 0)
 	for _, tag := range n.Tags {
 		trimmed := strings.ToLower(strings.TrimSpace(tag))
 		if trimmed != "" {

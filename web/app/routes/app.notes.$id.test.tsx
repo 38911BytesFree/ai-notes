@@ -36,11 +36,31 @@ const fixtureNote: Note = {
   updated_at: "2026-09-01T12:05:00Z",
 };
 
+let currentNote: Note = fixtureNote;
+
+vi.mock("~/services/auth.server", () => ({
+  requireAuth: vi.fn(async () => ({ user: { uid: "uid-123" } })),
+}));
+
+vi.mock("~/services/notes-api.server", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>("~/services/notes-api.server");
+  return {
+    ...actual,
+    patchNote: vi.fn(async () => ({
+      ok: true,
+      data: {
+        ...fixtureNote,
+        title: "Patched Title",
+      },
+    })),
+  };
+});
+
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("react-router");
   return {
     ...actual,
-    useLoaderData: () => ({ note: fixtureNote }),
+    useLoaderData: () => ({ note: currentNote }),
     useFetcher: () => ({
       data: null,
       state: "idle",
@@ -50,8 +70,11 @@ vi.mock("react-router", async () => {
   };
 });
 
+import { action } from "./app.notes.$id";
+
 describe("NoteDetailView", () => {
   it("renders note title, category, tags, summary, takeaways, code block, and provenance", () => {
+    currentNote = fixtureNote;
     render(
       <MemoryRouter>
         <NoteDetailView />
@@ -80,4 +103,53 @@ describe("NoteDetailView", () => {
       screen.getByText(/ChatGPT conversation/)
     ).toBeInTheDocument();
   });
+
+  it("handles notes with null or empty tags and takeaways gracefully without crashing", () => {
+    currentNote = {
+      ...fixtureNote,
+      // @ts-expect-error test potential null from API
+      tags: null,
+      // @ts-expect-error test potential null from API
+      takeaways: null,
+      code_blocks: undefined,
+    };
+
+    render(
+      <MemoryRouter>
+        <NoteDetailView />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
+
+  it("executes patch action successfully returning serialized json", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "patch");
+    params.append("title", "Patched Title");
+    params.append("summary", "New Summary");
+    params.append("category", "General");
+    params.append("tags", "tag1, tag2");
+    params.append("takeaways", "line1\nline2");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.note.title).toBe("Patched Title");
+  });
 });
+

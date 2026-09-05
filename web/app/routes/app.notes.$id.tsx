@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLoaderData, useNavigate, useFetcher, redirect } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { requireAuth } from "~/services/auth.server";
@@ -100,16 +100,16 @@ export default function NoteDetailView() {
   // Edit form state
   const [editTitle, setEditTitle] = useState(note.title);
   const [editSummary, setEditSummary] = useState(note.summary);
-  const [editTakeaways, setEditTakeaways] = useState(note.takeaways.join("\n"));
+  const [editTakeaways, setEditTakeaways] = useState((note.takeaways ?? []).join("\n"));
   const [editCategory, setEditCategory] = useState(note.category);
-  const [editTags, setEditTags] = useState(note.tags.join(", "));
+  const [editTags, setEditTags] = useState((note.tags ?? []).join(", "));
 
   const startEditing = () => {
     setEditTitle(note.title);
     setEditSummary(note.summary);
-    setEditTakeaways(note.takeaways.join("\n"));
+    setEditTakeaways((note.takeaways ?? []).join("\n"));
     setEditCategory(note.category);
-    setEditTags(note.tags.join(", "));
+    setEditTags((note.tags ?? []).join(", "));
     setIsEditing(true);
   };
 
@@ -120,9 +120,11 @@ export default function NoteDetailView() {
   const isPatching = fetcher.state !== "idle";
 
   // When patch succeeds, exit edit mode
-  if (isEditing && fetcher.data?.ok && fetcher.state === "idle") {
-    setIsEditing(false);
-  }
+  useEffect(() => {
+    if (isEditing && fetcher.data?.ok && fetcher.state === "idle") {
+      setIsEditing(false);
+    }
+  }, [isEditing, fetcher.data?.ok, fetcher.state]);
 
   // Provenance formatting
   const dateStr = note.source.conversation_date
@@ -320,7 +322,7 @@ export default function NoteDetailView() {
                 <span className="inline-flex items-center rounded-sm bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800">
                   {note.category}
                 </span>
-                {note.tags.map((tag) => (
+                {(note.tags ?? []).map((tag) => (
                   <span
                     key={tag}
                     className="inline-flex items-center rounded-sm bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 border border-gray-200"

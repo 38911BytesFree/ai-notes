@@ -112,12 +112,11 @@ async function callApi<T extends object>(
   try {
     const resp = await backendFetch(url, { ...init, headers });
     if (resp.status === 204) {
-      const emptyObj = {} as T;
-      return Object.assign(emptyObj, { ok: true as const, data: emptyObj });
+      return { ok: true, data: {} as T, ...({} as T) };
     }
     if (resp.ok) {
-      const body = (await resp.json()) as T;
-      return Object.assign(body, { ok: true as const, data: body });
+      const data = (await resp.json()) as T;
+      return { ok: true, data, ...data };
     }
     try {
       const errJson = (await resp.json()) as { code?: string };

@@ -73,3 +73,23 @@ func TestCleanAndTruncateNote(t *testing.T) {
 		t.Errorf("expected tag 3 length %d, got %d", MaxTagChars, len(n.Tags[2]))
 	}
 }
+
+func TestCleanAndTruncateNote_EmptySlices(t *testing.T) {
+	n := &Note{
+		Title:   "Empty Slices Note",
+		Summary: "Summary",
+	}
+
+	CleanAndTruncateNote(n)
+
+	if n.Takeaways == nil {
+		t.Errorf("expected non-nil Takeaways slice, got nil")
+	}
+	if n.CodeBlocks == nil {
+		t.Errorf("expected non-nil CodeBlocks slice, got nil")
+	}
+	if n.Tags == nil {
+		t.Errorf("expected non-nil Tags slice, got nil")
+	}
+}
+
