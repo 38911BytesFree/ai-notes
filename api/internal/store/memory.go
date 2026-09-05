@@ -48,7 +48,19 @@ func (m *MemoryStore) UpsertUser(ctx context.Context, u User) error {
 		return nil
 	}
 
+	if u.Email == "" {
+		u.Email = existing.Email
+	}
+	if u.DisplayName == "" {
+		u.DisplayName = existing.DisplayName
+	}
+
 	if now.Sub(existing.LastSeenAt) < time.Hour {
+		if existing.Email != u.Email || existing.DisplayName != u.DisplayName {
+			existing.Email = u.Email
+			existing.DisplayName = u.DisplayName
+			m.users[u.UID] = existing
+		}
 		return nil
 	}
 

@@ -301,6 +301,90 @@ func TestMemoryBlobStore(t *testing.T) {
 	}
 }
 
+func TestUpsertUserPreservesFields(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 9, 5, 10, 0, 0, 0, time.UTC)
+	s := NewMemoryStore()
+	s.Clock = func() time.Time { return now }
+
+	uid := "preserve-user"
+
+	// 1. Initial upsert with email and display name
+	err := s.UpsertUser(ctx, User{
+		UID:         uid,
+		Email:       "original@example.com",
+		DisplayName: "Original Name",
+	})
+	if err != nil {
+		t.Fatalf("initial UpsertUser failed: %v", err)
+	}
+
+	u, err := s.GetUser(ctx, uid)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if u.Email != "original@example.com" || u.DisplayName != "Original Name" {
+		t.Fatalf("expected original fields, got email=%q, name=%q", u.Email, u.DisplayName)
+	}
+
+	// 2. Upsert within 1 hour with empty email and display name (e.g. from custom token)
+	now = now.Add(10 * time.Minute)
+	err = s.UpsertUser(ctx, User{
+		UID:         uid,
+		Email:       "",
+		DisplayName: "",
+	})
+	if err != nil {
+		t.Fatalf("second UpsertUser failed: %v", err)
+	}
+
+	u, err = s.GetUser(ctx, uid)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if u.Email != "original@example.com" || u.DisplayName != "Original Name" {
+		t.Fatalf("expected preserved fields within 1 hour, got email=%q, name=%q", u.Email, u.DisplayName)
+	}
+
+	// 3. Upsert after > 1 hour with empty email and display name
+	now = now.Add(2 * time.Hour)
+	err = s.UpsertUser(ctx, User{
+		UID:         uid,
+		Email:       "",
+		DisplayName: "",
+	})
+	if err != nil {
+		t.Fatalf("third UpsertUser failed: %v", err)
+	}
+
+	u, err = s.GetUser(ctx, uid)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if u.Email != "original@example.com" || u.DisplayName != "Original Name" {
+		t.Fatalf("expected preserved fields after 2 hours, got email=%q, name=%q", u.Email, u.DisplayName)
+	}
+
+	// 4. Upsert with new display name but empty email -> only display name updates
+	now = now.Add(2 * time.Hour)
+	err = s.UpsertUser(ctx, User{
+		UID:         uid,
+		Email:       "",
+		DisplayName: "Updated Name",
+	})
+	if err != nil {
+		t.Fatalf("fourth UpsertUser failed: %v", err)
+	}
+
+	u, err = s.GetUser(ctx, uid)
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if u.Email != "original@example.com" || u.DisplayName != "Updated Name" {
+		t.Fatalf("expected preserved email and updated name, got email=%q, name=%q", u.Email, u.DisplayName)
+	}
+}
+
 func TestFirestoreStoreIntegration(t *testing.T) {
 	if os.Getenv("FIRESTORE_EMULATOR_HOST") == "" {
 		t.Skip("skipping firestore integration test: FIRESTORE_EMULATOR_HOST not set")

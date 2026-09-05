@@ -55,7 +55,19 @@ func (s *FirestoreStore) UpsertUser(ctx context.Context, u User) error {
 			return err
 		}
 
+		if u.Email == "" {
+			u.Email = existing.Email
+		}
+		if u.DisplayName == "" {
+			u.DisplayName = existing.DisplayName
+		}
+
 		if now.Sub(existing.LastSeenAt) < time.Hour {
+			if existing.Email != u.Email || existing.DisplayName != u.DisplayName {
+				existing.Email = u.Email
+				existing.DisplayName = u.DisplayName
+				return tx.Set(docRef, existing)
+			}
 			return nil
 		}
 
