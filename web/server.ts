@@ -10,6 +10,7 @@ import { buildServer } from "./mcp/server";
 import { oauthProvider } from "./oauth/provider";
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(compression());
 app.disable("x-powered-by");
 
@@ -93,6 +94,21 @@ app.use(
     resourceServerUrl,
     scopesSupported: ["notes:read", "notes:write"],
     resourceName: "AI Notes",
+    clientRegistrationOptions: {
+      rateLimit: {
+        validate: { xForwardedForHeader: false },
+      },
+    },
+    authorizationOptions: {
+      rateLimit: {
+        validate: { xForwardedForHeader: false },
+      },
+    },
+    tokenOptions: {
+      rateLimit: {
+        validate: { xForwardedForHeader: false },
+      },
+    },
   })
 );
 
