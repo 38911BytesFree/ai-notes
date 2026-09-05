@@ -189,6 +189,7 @@ run(
     FIREBASE_AUTH_EMULATOR_HOST: AUTH,
     GOOGLE_CLOUD_PROJECT: PROJECT_ID,
     BIND_ADDRESS: BACKEND,
+    SERVICE_DEV_TOKEN: "dev-service-token",
   },
   path.join(ROOT, "api")
 );
@@ -204,6 +205,9 @@ run(
   {
     PORT: String(WEB_PORT),
     BACKEND_URL: `http://${BACKEND}`,
+    PUBLIC_BASE_URL: `http://${WEB}`,
+    SERVICE_DEV_TOKEN: "dev-service-token",
+    FIREBASE_AUTH_EMULATOR_HOST: AUTH,
     VITE_FIREBASE_AUTH_EMULATOR_HOST: AUTH,
   },
   path.join(ROOT, "web")
