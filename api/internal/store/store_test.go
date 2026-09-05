@@ -428,3 +428,45 @@ func TestFirestoreStoreIntegration(t *testing.T) {
 		t.Errorf("expected 'Emu Note', got %q", got.Title)
 	}
 }
+
+func TestFirestoreFindNearestIntegration(t *testing.T) {
+	if os.Getenv("FIRESTORE_EMULATOR_HOST") == "" {
+		t.Skip("skipping firestore integration test: FIRESTORE_EMULATOR_HOST not set")
+	}
+
+	ctx := context.Background()
+	client, err := firestore.NewClient(ctx, "test-project")
+	if err != nil {
+		t.Fatalf("failed to connect to firestore emulator: %v", err)
+	}
+	defer client.Close()
+
+	s := NewFirestoreStore(client)
+	uid := "emu-vec-user-" + time.Now().Format("150405")
+
+	note := &notes.Note{
+		ID:        "emu-vec-note-" + time.Now().Format("150405"),
+		OwnerUID:  uid,
+		Title:     "Emu Vector Note",
+		Summary:   "Summary",
+		Takeaways: []string{"T1", "T2"},
+		Category:  "AI & ML",
+		Embedding: firestore.Vector32{1.0, 0.0, 0.0},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+
+	if err := s.CreateNote(ctx, note); err != nil {
+		t.Fatalf("CreateNote on emulator failed: %v", err)
+	}
+
+	queryVector := []float32{1.0, 0.0, 0.0}
+	results, err := s.SearchNotes(ctx, uid, "", queryVector, 5)
+	if err != nil {
+		t.Fatalf("SearchNotes (FindNearest) failed on emulator: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatalf("expected at least 1 result from SearchNotes on emulator, got 0")
+	}
+	t.Logf("SearchNotes returned %d results", len(results))
+}

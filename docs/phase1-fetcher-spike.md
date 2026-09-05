@@ -118,3 +118,9 @@ Raw responses obtained during the spike have been preserved under `api/internal/
 - `providers/chatgpt/testdata/backend_share.json`: Full 9.2 KB raw JSON from `/backend-api/share/{id}`.
 - `providers/claude/testdata/share.html`: Full 107 KB HTML SPA shell from `https://claude.ai/share/8807c67a-750f-4ba7-a719-7d57df697456`.
 - `providers/claude/testdata/chat_snapshot.json`: Full 9.3 KB raw JSON from `/api/chat_snapshots/{id}`.
+
+---
+
+## 5. Emulator Vector Search Check
+
+`go test ./internal/store/...` with `FIRESTORE_EMULATOR_HOST` confirmed that `FindNearest` vector search works in the Firestore emulator.
