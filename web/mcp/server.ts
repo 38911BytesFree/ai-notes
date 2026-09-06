@@ -14,6 +14,8 @@ export interface McpServerContext {
  */
 export function buildServer(ctx: McpServerContext): McpServer {
   const uid = ctx?.authInfo?.extra?.uid as string | undefined;
+  // PATs carry both scopes; an OAuth token carries only what was consented to.
+  const scopes = ctx?.authInfo?.scopes ?? [];
 
   const server = new McpServer({
     name: "ai-notes",
@@ -27,7 +29,7 @@ export function buildServer(ctx: McpServerContext): McpServer {
         "Save a structured note to AI Notes. Takes a title, summary, takeaways, optional code blocks, category, tags, and transcript.",
       inputSchema: SaveNoteInputSchema,
     },
-    async (args) => handleSaveNote(args, uid)
+    async (args) => handleSaveNote(args, uid, scopes)
   );
 
   server.registerTool(
@@ -37,7 +39,7 @@ export function buildServer(ctx: McpServerContext): McpServer {
         "Perform semantic search over the user's saved notes with cosine distance ranking. Filter by category or limit count.",
       inputSchema: SearchNotesInputSchema,
     },
-    async (args) => handleSearchNotes(args, uid)
+    async (args) => handleSearchNotes(args, uid, scopes)
   );
 
   server.registerTool(
@@ -47,7 +49,7 @@ export function buildServer(ctx: McpServerContext): McpServer {
         "Retrieve the full contents of a note by note ID, optionally including the original conversation transcript.",
       inputSchema: GetNoteInputSchema,
     },
-    async (args) => handleGetNote(args, uid)
+    async (args) => handleGetNote(args, uid, scopes)
   );
 
   return server;

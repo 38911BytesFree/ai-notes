@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   InvalidClientMetadataError,
   InvalidGrantError,
+  InvalidScopeError,
   InvalidTargetError,
 } from "@modelcontextprotocol/server-legacy/auth";
 import { OAuthProvider } from "./provider";
@@ -41,7 +42,8 @@ describe("OAuthProvider and ClientsStore", () => {
       if (urlStr.endsWith("/v1/oauth/clients") && method === "POST") {
         const client = {
           client_id: body.client_id || "client-123",
-          client_secret: body.client_secret,
+          client_secret_hash: body.client_secret_hash,
+          client_secret_expires_at: body.client_secret_expires_at,
           client_name: body.client_name,
           redirect_uris: body.redirect_uris,
           grant_types: body.grant_types,
@@ -114,6 +116,16 @@ describe("OAuthProvider and ClientsStore", () => {
           return new Response(JSON.stringify({ code: "not_found" }), { status: 404 });
         }
         tokenRec.revoked = true;
+        return new Response(JSON.stringify(tokenRec), { status: 200 });
+      }
+
+      // GET /v1/oauth/tokens/{hash}
+      const tokenGetMatch = urlStr.match(/\/v1\/oauth\/tokens\/([^/]+)$/);
+      if (tokenGetMatch && method === "GET") {
+        const tokenRec = fakeTokens.get(tokenGetMatch[1]);
+        if (!tokenRec || tokenRec.revoked) {
+          return new Response(JSON.stringify({ code: "not_found" }), { status: 404 });
+        }
         return new Response(JSON.stringify(tokenRec), { status: 200 });
       }
 
@@ -410,15 +422,164 @@ describe("OAuthProvider and ClientsStore", () => {
     });
   });
 
+  describe("Client secrets", () => {
+    it("stores only the hash of a generated client secret and returns the plaintext once", async () => {
+      const registered = await clientsStore.registerClient({
+        client_id: "confidential-client",
+        client_name: "Confidential Client",
+        redirect_uris: ["https://test.example.com/oauth/callback"],
+        client_secret: "sdk-generated-secret",
+        client_secret_expires_at: 4102444800,
+        token_endpoint_auth_method: "client_secret_post",
+      });
+
+      // The registration response is the client's only chance to see it.
+      expect(registered.client_secret).toBe("sdk-generated-secret");
+
+      const stored = fakeClients.get("confidential-client");
+      expect(stored.client_secret).toBeUndefined();
+      expect(stored.client_secret_hash).toBe(hashToken("sdk-generated-secret"));
+
+      // getClient must not resurrect the plaintext for the SDK to compare.
+      const fetched = await clientsStore.getClient("confidential-client");
+      expect(fetched.client_secret).toBeUndefined();
+      expect(fetched.client_secret_expires_at).toBe(4102444800);
+    });
+
+    it("records a public client with no secret at all", async () => {
+      await clientsStore.registerClient({
+        client_id: "public-client",
+        client_name: "Public Client",
+        redirect_uris: ["https://test.example.com/oauth/callback"],
+        token_endpoint_auth_method: "none",
+      });
+
+      const stored = fakeClients.get("public-client");
+      expect(stored.client_secret_hash).toBeUndefined();
+      expect(stored.token_endpoint_auth_method).toBe("none");
+    });
+  });
+
+  describe("Scopes", () => {
+    it("refuses an authorize request for a scope this server does not define", async () => {
+      const res = { setHeader: vi.fn(), redirect: vi.fn() } as any;
+
+      await expect(
+        provider.authorize(
+          { client_id: "client-123" },
+          {
+            redirectUri: "https://example.com/cb",
+            codeChallenge: "ch123",
+            scopes: ["notes:read", "notes:admin"],
+          },
+          res
+        )
+      ).rejects.toThrow(InvalidScopeError);
+      expect(res.redirect).not.toHaveBeenCalled();
+    });
+
+    it("refuses a refresh that asks for more scope than was granted", async () => {
+      const client = { client_id: "client-123" };
+      const codeHash = hashToken("ain_ac_readonly");
+      fakeCodes.set(codeHash, {
+        client_id: "client-123",
+        uid: "user-1",
+        scopes: ["notes:read"],
+        code_challenge: "ch123",
+        redirect_uri: "https://example.com/cb",
+        resource: "https://ai-notes.example.com/mcp",
+        consumed: false,
+      });
+
+      const issued = await provider.exchangeAuthorizationCode(
+        client,
+        "ain_ac_readonly",
+        undefined,
+        "https://example.com/cb"
+      );
+      expect(issued.scope).toBe("notes:read");
+
+      await expect(
+        provider.exchangeRefreshToken(client, issued.refresh_token, [
+          "notes:read",
+          "notes:write",
+        ])
+      ).rejects.toThrow(InvalidScopeError);
+    });
+
+    it("allows a refresh that narrows the grant", async () => {
+      const client = { client_id: "client-123" };
+      const codeHash = hashToken("ain_ac_bothscopes");
+      fakeCodes.set(codeHash, {
+        client_id: "client-123",
+        uid: "user-1",
+        scopes: ["notes:read", "notes:write"],
+        code_challenge: "ch123",
+        redirect_uri: "https://example.com/cb",
+        resource: "https://ai-notes.example.com/mcp",
+        consumed: false,
+      });
+
+      const issued = await provider.exchangeAuthorizationCode(
+        client,
+        "ain_ac_bothscopes",
+        undefined,
+        "https://example.com/cb"
+      );
+
+      const refreshed = await provider.exchangeRefreshToken(client, issued.refresh_token, [
+        "notes:read",
+      ]);
+      expect(refreshed.scope).toBe("notes:read");
+    });
+  });
+
+  describe("Personal access tokens are not OAuth grants", () => {
+    it("refuses a PAT presented as an authorization code", async () => {
+      await expect(
+        provider.exchangeAuthorizationCode(
+          { client_id: "client-123" },
+          "ain_pat_notanauthcode"
+        )
+      ).rejects.toThrow(InvalidGrantError);
+    });
+
+    it("refuses a PAT presented as a refresh token", async () => {
+      await expect(
+        provider.exchangeRefreshToken({ client_id: "client-123" }, "ain_pat_notarefresh")
+      ).rejects.toThrow(InvalidGrantError);
+    });
+  });
+
   describe("Token Revocation", () => {
     it("revokes token via Go API", async () => {
       const rawToken = "ain_at_testtoken123";
       const tokenHash = hashToken(rawToken);
-      fakeTokens.set(tokenHash, { token_hash: tokenHash, revoked: false });
+      fakeTokens.set(tokenHash, {
+        token_hash: tokenHash,
+        kind: "access",
+        client_id: "client-123",
+        revoked: false,
+      });
 
       await provider.revokeToken({ client_id: "client-123" }, { token: rawToken });
 
       expect(fakeTokens.get(tokenHash).revoked).toBe(true);
+    });
+
+    it("refuses to revoke a token issued to a different client", async () => {
+      const rawToken = "ain_at_othersclienttoken";
+      const tokenHash = hashToken(rawToken);
+      fakeTokens.set(tokenHash, {
+        token_hash: tokenHash,
+        kind: "access",
+        client_id: "client-123",
+        revoked: false,
+      });
+
+      await provider.revokeToken({ client_id: "attacker-client" }, { token: rawToken });
+
+      expect(fakeTokens.get(tokenHash).revoked).toBe(false);
     });
   });
 });

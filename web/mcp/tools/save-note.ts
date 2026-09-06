@@ -2,6 +2,8 @@ import { z } from "zod";
 import { backendFetch, BACKEND_URL } from "../../app/services/backend.server";
 import { getErrorMessage } from "../../app/services/error-messages";
 import { uidToIdToken } from "../identity";
+import { requireScope } from "./scope-guard";
+import { SCOPE_WRITE } from "../../oauth/scopes";
 import { RateLimiter } from "../../app/services/ratelimit.server";
 
 export const TAXONOMY = [
@@ -93,7 +95,8 @@ export const SaveNoteInputSchema = {
 
 export async function handleSaveNote(
   args: z.infer<z.ZodObject<typeof SaveNoteInputSchema>>,
-  uid?: string
+  uid?: string,
+  scopes?: readonly string[]
 ) {
   if (!uid) {
     return {
@@ -102,6 +105,9 @@ export async function handleSaveNote(
       structuredContent: { code: "unauthenticated" },
     };
   }
+
+  const denied = requireScope(scopes, SCOPE_WRITE);
+  if (denied) return denied;
 
   // Rate limit check: 60 calls per minute per UID
   if (!mcpSaveRateLimiter.consume(uid)) {

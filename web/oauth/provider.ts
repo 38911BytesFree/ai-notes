@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import {
   InvalidGrantError,
+  InvalidScopeError,
   InvalidTargetError,
   type OAuthServerProvider,
 } from "@modelcontextprotocol/server-legacy/auth";
@@ -19,10 +20,13 @@ import {
   getAuthorizationCode,
   consumeAuthorizationCode,
   storeOAuthToken,
+  getOAuthToken,
   rotateOAuthToken,
   revokeOAuthToken,
 } from "../app/services/oauth-api.server";
 import { verifyAccessToken } from "../mcp/verifier";
+import { getResourceUrl } from "./issuer";
+import { SUPPORTED_SCOPES, scopesBeyond, unsupportedScopes } from "./scopes";
 
 function getAccessTokenTtlSeconds(): number {
   const envVal = process.env.OAUTH_ACCESS_TOKEN_TTL_SECONDS;
@@ -43,8 +47,7 @@ export class OAuthProvider implements OAuthServerProvider {
   }
 
   async authorize(client: any, params: any, res: Response): Promise<void> {
-    const publicBase = process.env.PUBLIC_BASE_URL || "http://localhost:5173";
-    const expectedResource = `${publicBase}/mcp`;
+    const expectedResource = getResourceUrl().toString();
 
     if (params.resource) {
       const resourceStr = params.resource.toString().replace(/\/$/, "");
@@ -56,10 +59,21 @@ export class OAuthProvider implements OAuthServerProvider {
       }
     }
 
+    // Neither the SDK nor the client is trusted to keep scopes to the supported
+    // set, and whatever lands here is shown on the consent screen and stored on
+    // the grant, so reject anything we do not define.
+    const requestedScopes: string[] = params.scopes?.length
+      ? params.scopes
+      : [...SUPPORTED_SCOPES];
+    const unknown = unsupportedScopes(requestedScopes);
+    if (unknown.length > 0) {
+      throw new InvalidScopeError(`Unsupported scope(s): ${unknown.join(" ")}`);
+    }
+
     const payload: OAuthPendingPayload = {
       client_id: client.client_id,
       redirect_uri: params.redirectUri,
-      scopes: params.scopes?.length ? params.scopes : ["notes:read", "notes:write"],
+      scopes: requestedScopes,
       state: params.state,
       code_challenge: params.codeChallenge,
       resource: params.resource ? params.resource.toString() : expectedResource,
@@ -173,6 +187,16 @@ export class OAuthProvider implements OAuthServerProvider {
       }
     }
 
+    // RFC 6749 section 6: the requested scope must not exceed the original
+    // grant. Neither the SDK's token handler nor the client checks this.
+    const widened = scopes?.length ? scopesBeyond(scopes, oldToken.scopes) : [];
+    if (widened.length > 0) {
+      throw new InvalidScopeError(
+        `Refresh cannot widen the grant: ${widened.join(" ")}`
+      );
+    }
+    const effectiveScopes = scopes?.length ? scopes : oldToken.scopes;
+
     const { token: newAccessToken, hash: newAccessHash } = generateAccessToken();
     const { token: newRefreshToken, hash: newRefreshHash } = generateRefreshToken();
 
@@ -180,8 +204,6 @@ export class OAuthProvider implements OAuthServerProvider {
     const accessTtl = getAccessTokenTtlSeconds();
     const accessExpiresAt = new Date(now + accessTtl * 1000).toISOString();
     const refreshExpiresAt = new Date(now + 30 * 24 * 3600 * 1000).toISOString();
-
-    const effectiveScopes = scopes?.length ? scopes : oldToken.scopes;
 
     await storeOAuthToken({
       token_hash: newAccessHash,
@@ -219,11 +241,21 @@ export class OAuthProvider implements OAuthServerProvider {
   }
 
   async revokeToken(
-    _client: any,
+    client: any,
     request: { token: string; token_type_hint?: string }
   ): Promise<void> {
     if (!request?.token) return;
     const tokenHash = hashToken(request.token);
+
+    // RFC 7009 section 2.1: a client may only revoke its own tokens. An unknown
+    // or already-revoked token is not an error (section 2.2), and neither is
+    // another client's, so both are a silent no-op rather than an existence
+    // oracle.
+    const record = await getOAuthToken(tokenHash);
+    if (!record || record.client_id !== client?.client_id) {
+      return;
+    }
+
     await revokeOAuthToken(tokenHash);
   }
 }

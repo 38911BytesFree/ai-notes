@@ -38,6 +38,60 @@ describe("mcp/server and tools", () => {
     expect(registeredTools).toHaveProperty("get_note");
   });
 
+  describe("scope enforcement", () => {
+    it("refuses save_note when the token was not granted notes:write", async () => {
+      const fetchSpy = vi.fn();
+      globalThis.fetch = fetchSpy as any;
+
+      const server = buildServer({
+        authInfo: {
+          token: "tok",
+          clientId: "readonly-client",
+          scopes: ["notes:read"],
+          extra: { uid: "user-test" },
+        },
+      });
+
+      const result = await (server as any)._registeredTools.save_note.handler({
+        title: "Blocked",
+        summary: "Should never reach the API",
+        takeaways: ["nope"],
+        source: { provider: "claude" },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent.code).toBe("forbidden");
+      expect(result.structuredContent.required_scope).toBe("notes:write");
+      // The refusal must happen before any call to Go.
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("refuses search_notes and get_note when the token was not granted notes:read", async () => {
+      const fetchSpy = vi.fn();
+      globalThis.fetch = fetchSpy as any;
+
+      const server = buildServer({
+        authInfo: {
+          token: "tok",
+          clientId: "writeonly-client",
+          scopes: ["notes:write"],
+          extra: { uid: "user-test" },
+        },
+      });
+
+      const search = await (server as any)._registeredTools.search_notes.handler({
+        query: "anything",
+      });
+      const get = await (server as any)._registeredTools.get_note.handler({
+        note_id: "note-1",
+      });
+
+      expect(search.structuredContent.code).toBe("forbidden");
+      expect(get.structuredContent.code).toBe("forbidden");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe("save_note tool", () => {
     it("saves a note via Go API and returns structured content with note URL", async () => {
       let requestBody: any = null;

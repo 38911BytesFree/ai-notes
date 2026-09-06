@@ -2,6 +2,8 @@ import { z } from "zod";
 import { backendFetch, BACKEND_URL } from "../../app/services/backend.server";
 import { getErrorMessage } from "../../app/services/error-messages";
 import { uidToIdToken } from "../identity";
+import { requireScope } from "./scope-guard";
+import { SCOPE_READ } from "../../oauth/scopes";
 import { TAXONOMY } from "./save-note";
 
 export const SearchNotesInputSchema = {
@@ -26,7 +28,8 @@ export const SearchNotesInputSchema = {
 
 export async function handleSearchNotes(
   args: z.infer<z.ZodObject<typeof SearchNotesInputSchema>>,
-  uid?: string
+  uid?: string,
+  scopes?: readonly string[]
 ) {
   if (!uid) {
     return {
@@ -35,6 +38,9 @@ export async function handleSearchNotes(
       structuredContent: { code: "unauthenticated" },
     };
   }
+
+  const denied = requireScope(scopes, SCOPE_READ);
+  if (denied) return denied;
 
   try {
     const idToken = await uidToIdToken(uid);

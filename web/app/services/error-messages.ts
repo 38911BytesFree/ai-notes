@@ -13,6 +13,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   summarise_failed: "AI summarisation failed. Please try again.",
   ingest_limit_reached: "You have reached your monthly ingest limit (30 notes per month).",
   rate_limited: "Too many requests. Please wait a moment before trying again.",
+  forbidden: "You do not have permission to do that.",
   internal_error: "An unexpected error occurred. Please try again later.",
 };
 
