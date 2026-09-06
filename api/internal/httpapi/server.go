@@ -92,6 +92,11 @@ func NewServer(deps ServerDeps) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 
+	// Public endpoints (no user or service token required; protected by Cloud Run IAM).
+	// This represents the entire public API surface of the private Go service.
+	mux.HandleFunc("GET /v1/public/notes/{id}", s.handleGetPublicNote)
+	mux.HandleFunc("GET /v1/public/notes", s.handleListPublicNotes)
+
 	// User endpoints
 	mux.Handle("GET /v1/me", s.requireUser(http.HandlerFunc(s.handleMe)))
 	mux.Handle("PATCH /v1/me", s.requireUser(http.HandlerFunc(s.handlePatchMe)))

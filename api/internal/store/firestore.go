@@ -531,6 +531,84 @@ func (s *FirestoreStore) GetNotesForExport(ctx context.Context, uid string) ([]*
 	return result, nil
 }
 
+func (s *FirestoreStore) GetPublicNote(ctx context.Context, id string) (*notes.Note, error) {
+	doc, err := s.client.Collection("notes").Doc(id).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var note notes.Note
+	if err := doc.DataTo(&note); err != nil {
+		return nil, err
+	}
+
+	if note.Visibility != "public" && note.Visibility != "unlisted" {
+		return nil, ErrNotFound
+	}
+
+	return &note, nil
+}
+
+func (s *FirestoreStore) ListPublicNotes(ctx context.Context, category, cursor string, limit int) ([]*notes.Note, string, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	q := s.client.Collection("notes").Where("visibility", "==", "public")
+	if category != "" {
+		q = q.Where("category", "==", category)
+	}
+	q = q.OrderBy("published_at", firestore.Desc)
+
+	if cursor != "" {
+		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+		if err == nil {
+			q = q.StartAfter(cursorTime)
+		}
+	}
+
+	// Fetch limit + 1 to check for next page
+	q = q.Limit(limit + 1)
+
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	var result []*notes.Note
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, "", err
+		}
+
+		var note notes.Note
+		if err := doc.DataTo(&note); err != nil {
+			return nil, "", err
+		}
+		result = append(result, &note)
+	}
+
+	nextCursor := ""
+	if len(result) > limit {
+		page := result[:limit]
+		last := page[len(page)-1]
+		if last.PublishedAt != nil {
+			nextCursor = last.PublishedAt.Format(time.RFC3339Nano)
+		}
+		return page, nextCursor, nil
+	}
+
+	return result, "", nil
+}
+
 func (s *FirestoreStore) CreateOAuthClient(ctx context.Context, client *OAuthClient) error {
 	_, err := s.client.Collection("oauth_clients").Doc(client.ClientID).Set(ctx, client)
 	return err

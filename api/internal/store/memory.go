@@ -411,6 +411,91 @@ func (m *MemoryStore) GetNotesForExport(ctx context.Context, uid string) ([]*not
 	return userNotes, nil
 }
 
+func (m *MemoryStore) GetPublicNote(ctx context.Context, id string) (*notes.Note, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	n, ok := m.notes[id]
+	if !ok || (n.Visibility != "public" && n.Visibility != "unlisted") {
+		return nil, ErrNotFound
+	}
+
+	cp := *n
+	return &cp, nil
+}
+
+func (m *MemoryStore) ListPublicNotes(ctx context.Context, category, cursor string, limit int) ([]*notes.Note, string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var matched []*notes.Note
+	for _, n := range m.notes {
+		if n.Visibility != "public" {
+			continue
+		}
+		if category != "" && n.Category != category {
+			continue
+		}
+		cp := *n
+		matched = append(matched, &cp)
+	}
+
+	// Sort newest first: published_at DESC, then ID DESC
+	sort.Slice(matched, func(i, j int) bool {
+		var tI, tJ time.Time
+		if matched[i].PublishedAt != nil {
+			tI = *matched[i].PublishedAt
+		}
+		if matched[j].PublishedAt != nil {
+			tJ = *matched[j].PublishedAt
+		}
+		if tI.Equal(tJ) {
+			return matched[i].ID > matched[j].ID
+		}
+		return tI.After(tJ)
+	})
+
+	startIndex := 0
+	if cursor != "" {
+		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+		if err == nil {
+			for i, n := range matched {
+				var pubTime time.Time
+				if n.PublishedAt != nil {
+					pubTime = *n.PublishedAt
+				}
+				if pubTime.Before(cursorTime) {
+					startIndex = i
+					break
+				}
+				if i == len(matched)-1 {
+					startIndex = len(matched)
+				}
+			}
+		}
+	}
+
+	matched = matched[startIndex:]
+	if limit <= 0 {
+		limit = 30
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	nextCursor := ""
+	if len(matched) > limit {
+		page := matched[:limit]
+		last := page[len(page)-1]
+		if last.PublishedAt != nil {
+			nextCursor = last.PublishedAt.Format(time.RFC3339Nano)
+		}
+		return page, nextCursor, nil
+	}
+
+	return matched, "", nil
+}
+
 func cosineDistance(a []float32, b []float32) float64 {
 	if len(a) != len(b) || len(a) == 0 {
 		return 1.0

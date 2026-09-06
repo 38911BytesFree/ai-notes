@@ -44,6 +44,8 @@ type Store interface {
 	ListNotes(ctx context.Context, uid, category, cursor string, limit int) ([]*notes.Note, string, error)
 	SearchNotes(ctx context.Context, uid, category string, vector []float32, limit int) ([]*notes.SearchResult, error)
 	GetNotesForExport(ctx context.Context, uid string) ([]*notes.Note, error)
+	GetPublicNote(ctx context.Context, id string) (*notes.Note, error)
+	ListPublicNotes(ctx context.Context, category, cursor string, limit int) ([]*notes.Note, string, error)
 
 	// OAuth operations
 	CreateOAuthClient(ctx context.Context, client *OAuthClient) error
