@@ -69,26 +69,27 @@ export default function FeedRoute() {
   if (next_cursor) nextParams.set("cursor", next_cursor);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 pb-16">
+    <div className="min-h-screen bg-[#0e0e11] text-[#f4f4f5] pb-16">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+      <header className="border-b border-[#222228] bg-[#121216] sticky top-0 z-10">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
           <Link
             to="/"
-            className="flex items-center space-x-2 font-bold text-gray-900 text-base tracking-tight hover:opacity-90"
+            className="flex items-center space-x-2 font-bold text-white text-base tracking-tight hover:opacity-90"
           >
+            <span className="text-indigo-400">✦</span>
             <span>AI Notes</span>
           </Link>
           <div className="flex items-center space-x-3 text-xs font-medium">
             <Link
               to="/app"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              className="text-zinc-400 hover:text-white transition-colors"
             >
               My Library
             </Link>
             <Link
               to="/login"
-              className="rounded-md bg-gray-900 px-3 py-1.5 text-white hover:bg-gray-800 transition-colors"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
             >
               Sign in
             </Link>
@@ -96,25 +97,25 @@ export default function FeedRoute() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 space-y-6">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Public Feed</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Public Feed</h1>
+          <p className="text-xs text-zinc-400 mt-1">
             Explore curated takeaways and notes shared by the AI Notes community.
           </p>
         </div>
 
         {/* Category Filter */}
-        <div className="border-y border-gray-200 py-2">
+        <div className="border-y border-[#222228] py-2">
           <CategoryChips
             selectedCategory={selectedCategory}
             onSelectCategory={handleSelectCategory}
           />
         </div>
 
-        {/* Notes Grid */}
+        {/* Notes Stream */}
         {notes.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
             {notes.map((note) => (
               <NoteCard
                 key={note.id}
@@ -124,9 +125,9 @@ export default function FeedRoute() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center">
-            <h3 className="text-sm font-semibold text-gray-900">No public notes found</h3>
-            <p className="text-xs text-gray-500 mt-1">
+          <div className="rounded-2xl border border-dashed border-[#242430] bg-[#14141a] p-12 text-center">
+            <h3 className="text-sm font-semibold text-white">No public notes found</h3>
+            <p className="text-xs text-zinc-400 mt-1">
               {selectedCategory
                 ? `There are no public notes in the ${selectedCategory} category yet.`
                 : "No notes have been shared publicly yet."}
@@ -135,7 +136,7 @@ export default function FeedRoute() {
               <button
                 type="button"
                 onClick={() => handleSelectCategory(undefined)}
-                className="mt-4 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="mt-4 rounded-lg border border-[#2e2e3e] bg-[#1a1a24] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer"
               >
                 Clear filter
               </button>
@@ -148,7 +149,7 @@ export default function FeedRoute() {
           <div className="flex justify-center pt-6">
             <Link
               to={`/feed?${nextParams.toString()}`}
-              className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-xs hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-[#2a2a38] bg-[#16161e] px-5 py-2 text-xs font-medium text-zinc-200 shadow-xs hover:bg-[#20202c] transition-colors"
             >
               Load more notes →
             </Link>

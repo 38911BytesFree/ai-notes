@@ -13,3 +13,17 @@
 @import "tailwindcss" source(none);
 
 @source "./**/*.{ts,tsx}";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    background-color: #0e0e11;
+    color: #f4f4f5;
+  }
+  ::selection {
+    background-color: #3f395d;
+    color: #ffffff;
+  }
+}

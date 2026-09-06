@@ -22,7 +22,7 @@ export const links: LinksFunction = () => [
 export const meta: MetaFunction = () => [
   { title: "AI Notes" },
   { name: "description", content: "Save useful AI conversations into one private, searchable library." },
-  { name: "theme-color", content: "#111827" },
+  { name: "theme-color", content: "#0e0e11" },
   { property: "og:type", content: "website" },
   { property: "og:site_name", content: "AI Notes" },
   { property: "og:title", content: "AI Notes" },
@@ -42,14 +42,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body className="min-h-full flex flex-col font-sans antialiased text-gray-900 bg-white">
+      <body className="min-h-full flex flex-col font-sans antialiased text-[#f4f4f5] bg-[#0e0e11]">
         {children}
         <ScrollRestoration />
         <Scripts />

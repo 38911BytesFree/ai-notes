@@ -26,14 +26,14 @@ interface CategoryChipsProps {
 
 export function CategoryChips({ selectedCategory, onSelectCategory }: CategoryChipsProps) {
   return (
-    <div className="flex flex-wrap gap-1.5 py-2">
+    <div className="flex flex-wrap gap-1.5 py-1">
       <button
         type="button"
         onClick={() => onSelectCategory(undefined)}
-        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
           !selectedCategory
-            ? "bg-gray-900 text-white"
-            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            ? "bg-indigo-600 text-white"
+            : "bg-[#16161f] text-zinc-400 hover:text-zinc-200 hover:bg-[#1f1f2a] border border-[#242432]"
         }`}
       >
         All
@@ -45,10 +45,10 @@ export function CategoryChips({ selectedCategory, onSelectCategory }: CategoryCh
             key={cat}
             type="button"
             onClick={() => onSelectCategory(isSelected ? undefined : cat)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
               isSelected
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-indigo-600 text-white"
+                : "bg-[#16161f] text-zinc-400 hover:text-zinc-200 hover:bg-[#1f1f2a] border border-[#242432]"
             }`}
           >
             {cat}

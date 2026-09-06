@@ -83,7 +83,6 @@ export function VisibilityControl({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       setCopied(false);
     }
   };
@@ -107,20 +106,20 @@ export function VisibilityControl({
   ];
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs space-y-6">
-      <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+    <div className="rounded-2xl border border-[#242430] bg-[#14141a] p-6 shadow-xs space-y-6 text-zinc-200">
+      <div className="flex items-center justify-between border-b border-[#22222c] pb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Visibility & Sharing</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Control who can access and view this note.</p>
+          <h2 className="text-base font-semibold text-white">Visibility & Sharing</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Control who can access and view this note.</p>
         </div>
         <div>
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
               currentVisibility === "public"
-                ? "bg-green-50 text-green-700 border-green-200"
+                ? "bg-emerald-950/50 text-emerald-300 border-emerald-800/50"
                 : currentVisibility === "unlisted"
-                ? "bg-amber-50 text-amber-700 border-amber-200"
-                : "bg-gray-100 text-gray-700 border-gray-200"
+                ? "bg-amber-950/50 text-amber-300 border-amber-800/50"
+                : "bg-[#1f1f2a] text-zinc-300 border-[#2f2f40]"
             }`}
           >
             {currentVisibility.charAt(0).toUpperCase() + currentVisibility.slice(1)}
@@ -129,8 +128,8 @@ export function VisibilityControl({
       </div>
 
       {showPublicLink && (
-        <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-4 space-y-2">
-          <span className="block text-xs font-semibold text-blue-900 uppercase tracking-wider">
+        <div className="rounded-xl border border-indigo-900/40 bg-[#161526] p-4 space-y-2">
+          <span className="block text-xs font-semibold text-indigo-300 uppercase tracking-wider">
             Public link
           </span>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -138,13 +137,13 @@ export function VisibilityControl({
               type="text"
               readOnly
               value={publicUrl}
-              className="w-full rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs text-gray-800 shadow-xs focus:outline-hidden"
+              className="w-full rounded-lg border border-[#2f2f42] bg-[#101016] px-3 py-1.5 text-xs text-zinc-200 shadow-xs focus:outline-hidden"
             />
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-xs hover:bg-blue-50 transition-colors"
+                className="rounded-lg border border-[#37374e] bg-[#1f1f2e] px-3 py-1.5 text-xs font-medium text-indigo-300 hover:text-white hover:bg-[#27273a] transition-colors cursor-pointer"
               >
                 {copied ? "Copied!" : "Copy link"}
               </button>
@@ -152,7 +151,7 @@ export function VisibilityControl({
                 href={publicUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-xs hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-[#2d2d3c] bg-[#181822] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-[#20202c] transition-colors"
               >
                 Open ↗
               </a>
@@ -168,10 +167,10 @@ export function VisibilityControl({
           {options.map((option) => (
             <label
               key={option.value}
-              className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer transition-colors ${
+              className={`flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-colors ${
                 selectedVisibility === option.value
-                  ? "border-gray-900 bg-gray-50/50"
-                  : "border-gray-200 hover:border-gray-300 bg-white"
+                  ? "border-indigo-500/80 bg-[#1a1926]"
+                  : "border-[#22222d] hover:border-[#2f2f3e] bg-[#121217]"
               }`}
             >
               <input
@@ -180,11 +179,11 @@ export function VisibilityControl({
                 value={option.value}
                 checked={selectedVisibility === option.value}
                 onChange={() => setSelectedVisibility(option.value)}
-                className="mt-0.5 h-4 w-4 text-gray-900 border-gray-300 focus:ring-gray-900"
+                className="mt-0.5 h-4 w-4 text-indigo-600 border-zinc-700 bg-[#1e1e28] focus:ring-0 cursor-pointer"
               />
               <div className="space-y-0.5">
-                <span className="block text-sm font-medium text-gray-900">{option.label}</span>
-                <span className="block text-xs text-gray-500">{option.description}</span>
+                <span className="block text-sm font-medium text-zinc-100">{option.label}</span>
+                <span className="block text-xs text-zinc-400">{option.description}</span>
               </div>
             </label>
           ))}
@@ -194,10 +193,10 @@ export function VisibilityControl({
         {hasPii && (
           <div
             data-testid="pii-panel"
-            className={`rounded-lg border p-4 space-y-3 ${
+            className={`rounded-xl border p-4 space-y-3 ${
               isPiiUnacknowledged
-                ? "border-red-300 bg-red-50 text-red-900"
-                : "border-amber-300 bg-amber-50 text-amber-900"
+                ? "border-red-900/60 bg-red-950/40 text-red-200"
+                : "border-amber-900/60 bg-amber-950/30 text-amber-200"
             }`}
           >
             <div className="space-y-1">
@@ -220,7 +219,7 @@ export function VisibilityControl({
             )}
 
             {isPiiUnacknowledged && (
-              <p className="text-xs font-semibold text-red-700 bg-red-100/70 p-2 rounded-md">
+              <p className="text-xs font-semibold text-red-300 bg-red-900/40 p-2 rounded-lg border border-red-800/50">
                 Publishing refused: You must acknowledge the detected sensitive data before
                 publishing.
               </p>
@@ -234,7 +233,7 @@ export function VisibilityControl({
                   value="true"
                   checked={acknowledgeChecked}
                   onChange={(e) => setAcknowledgeChecked(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-[#1e1e28] text-indigo-600 focus:ring-0"
                 />
                 <span className="leading-tight">
                   I have reviewed this and want to publish it anyway
@@ -248,7 +247,7 @@ export function VisibilityControl({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 transition-colors cursor-pointer"
           >
             {isSubmitting ? "Updating..." : "Save visibility"}
           </button>
