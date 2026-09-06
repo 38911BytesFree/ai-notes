@@ -78,6 +78,45 @@ resource "google_firestore_index" "notes_by_category" {
   }
 }
 
+# 4. Composite Index: visibility ASC, published_at DESC (Public feed)
+resource "google_firestore_index" "notes_feed" {
+  project    = var.project_id
+  database   = google_firestore_database.database.name
+  collection = "notes"
+
+  fields {
+    field_path = "visibility"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "published_at"
+    order      = "DESCENDING"
+  }
+}
+
+# 5. Composite Index: visibility ASC, category ASC, published_at DESC (Public feed by category)
+resource "google_firestore_index" "notes_feed_by_category" {
+  project    = var.project_id
+  database   = google_firestore_database.database.name
+  collection = "notes"
+
+  fields {
+    field_path = "visibility"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "category"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "published_at"
+    order      = "DESCENDING"
+  }
+}
+
 # -----------------------------------------------------------------------------
 # Firestore Indexes: pat_tokens collection
 # -----------------------------------------------------------------------------

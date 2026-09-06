@@ -170,6 +170,11 @@ resource "google_cloud_run_v2_service" "web" {
       }
 
       env {
+        name  = "PUBLIC_INDEXING"
+        value = var.manage_domain ? "true" : "false"
+      }
+
+      env {
         name = "SESSION_SECRET"
         value_source {
           secret_key_ref {
