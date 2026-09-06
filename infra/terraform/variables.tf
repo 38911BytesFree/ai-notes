@@ -94,3 +94,20 @@ variable "firebase_measurement_id" {
   description = "Firebase measurement ID"
   default     = "G-VRBFCMKKJ1"
 }
+
+# Cloud Run assigns these URLs and keeps them for the life of the service. They
+# cannot be read from google_cloud_run_v2_service.{api,web}.uri here: each
+# service's own env references its URL, which would make the resource depend on
+# itself. They change only if a service is deleted and recreated, so do not
+# delete them.
+variable "api_service_url" {
+  type        = string
+  description = "Cloud Run URL of the private Go API, the expected aud on service tokens"
+  default     = "https://ai-notes-api-g3q7qn4imq-ew.a.run.app"
+}
+
+variable "web_service_url" {
+  type        = string
+  description = "Cloud Run URL of the public web service, used as PUBLIC_BASE_URL until manage_domain is true"
+  default     = "https://ai-notes-web-g3q7qn4imq-ew.a.run.app"
+}

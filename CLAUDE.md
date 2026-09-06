@@ -50,11 +50,11 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 | `pnpm dev:api` | Starts the Go API only (assumes emulators or GCP credentials are active). |
 | `pnpm build` | Builds the web app for production (`react-router build && esbuild server.ts`). |
 | `pnpm typecheck` | Runs React Router typegen and TypeScript compiler checks. |
-| `pnpm test` | Runs web tests (`vitest run`) and Go tests (`cd api && go test ./...`). |
+| `pnpm test` | Runs the web tests (`vitest run`). Go tests are a separate step: `cd api && go test ./...`. CI runs both. |
 
 ## Style & Architectural Rules
 
-1. **No prose errors in Go API responses**: Every error response is a JSON object with at least a `code` field drawn strictly from the closed set defined in `api/internal/httpapi/errors.go` (e.g. `unauthenticated`, `not_found`, `invalid_argument`, `unsupported_provider`, `fetch_failed`, `fetch_blocked`, `transcript_empty`, `transcript_too_long`, `summarise_failed`, `ingest_limit_reached`, `internal_error`).
+1. **No prose errors in Go API responses**: Every error response is a JSON object with at least a `code` field drawn strictly from the closed set defined in `api/internal/httpapi/errors.go` (e.g. `unauthenticated`, `not_found`, `invalid_argument`, `unsupported_provider`, `fetch_failed`, `fetch_blocked`, `transcript_empty`, `transcript_too_long`, `summarise_failed`, `ingest_limit_reached`, `forbidden`, `rate_limited`, `internal_error`).
 2. **Go API is never public**: It has no `allUsers` invoker binding in Terraform, its Cloud Run ingress is internal-only, and its tests verify rejection of unauthenticated requests.
 3. **Only Go API touches cloud data services**: The Go API is the only service with access to Firestore, Cloud Storage, or Vertex AI. The Web BFF never calls GCP data APIs directly.
 4. **Go `/v1/oauth/*` routes are service-auth only**: These endpoints accept only service authentication (`requireService` with verified Google ID token matching `SERVICE_AUDIENCE` and `WEB_SERVICE_ACCOUNT`, or `SERVICE_DEV_TOKEN` in local dev). They never accept user tokens. Conversely, user routes never accept service tokens.
@@ -66,8 +66,10 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 10. **Build from the repo root or subproject root identically**: Dockerfiles are tested with respective build contexts.
 11. **No premature abstraction**: Write concrete implementations first.
 12. **Don't touch what works**: Preserve tested patterns from reference architectures unless there is a specific, documented need to adapt them.
-13. **Pin legacy auth package deliberately**: `@modelcontextprotocol/server-legacy/auth` is pinned deliberately for the OAuth authorization server router, Dynamic Client Registration, and RFC 9728 protected resource metadata endpoints.
-14. **Never suppress warnings or errors**: Never suppress warnings, ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
+13. **MCP scopes are checked in the tool, not the transport**: `requireBearerAuth` cannot know which tool a request will reach, so `save_note` checks `notes:write` and `search_notes`/`get_note` check `notes:read` via `web/mcp/tools/scope-guard.ts`. `authorize` refuses any scope outside `web/oauth/scopes.ts`, and a refresh may narrow a grant but never widen it.
+14. **Only token hashes are stored**: personal access tokens, OAuth access and refresh tokens, authorization codes, and OAuth client secrets are all kept as SHA-256 hex and nothing else. Because a stored client secret has no plaintext for the SDK to compare, `web/oauth/client-auth.ts` authenticates confidential clients ahead of `/token` and `/revoke`.
+15. **Pin legacy auth package deliberately**: `@modelcontextprotocol/server-legacy/auth` is pinned deliberately for the OAuth authorization server router, Dynamic Client Registration, and RFC 9728 protected resource metadata endpoints.
+16. **Never suppress warnings or errors**: Never suppress warnings, ignore errors, or hide diagnostic outputs. Diagnose and fix the underlying root cause directly.
 
 ## Deployment Notes
 
@@ -80,7 +82,7 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
   - `sa-ai-notes-web`: Grants `roles/logging.logWriter`, `roles/run.invoker` on `ai-notes-api`, and `roles/secretmanager.secretAccessor` on `session-secret`.
   - `sa-ai-notes-build`: Cloud Build agent with `roles/run.admin`, `roles/artifactregistry.writer`, and `roles/iam.serviceAccountUser`.
 - **Secrets Management**:
-  - Managed via Google Cloud Secret Manager (`session-secret`, `github-token`).
+  - Managed via Google Cloud Secret Manager (`session-secret`).
   - Web service mounts `session-secret` as an environment variable via Cloud Run secret references.
 - **Terraform State**:
   - Managed in `infra/terraform/` using remote GCS backend `ai-notes-tfstate` (provisioned by `infra/terraform/bootstrap/`).

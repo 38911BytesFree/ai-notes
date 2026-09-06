@@ -1,6 +1,8 @@
 locals {
-  api_service_url = "https://ai-notes-api-g3q7qn4imq-ew.a.run.app"
-  public_base_url = var.manage_domain ? "https://${var.domain}" : "https://ai-notes-web-g3q7qn4imq-ew.a.run.app"
+  api_service_url = var.api_service_url
+  # Switching to a custom domain is this one flag; see docs/phase2-handoff.md
+  # section 3.1 for what has to be cleaned up at cutover.
+  public_base_url = var.manage_domain ? "https://${var.domain}" : var.web_service_url
 }
 
 # -----------------------------------------------------------------------------
