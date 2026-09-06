@@ -82,9 +82,9 @@ func (p *Provider) Fetch(ctx context.Context, rawURL string) (notes.Transcript, 
 // ParseJSON parses a ChatGPT conversation JSON response.
 func ParseJSON(body []byte) (notes.Transcript, error) {
 	var root struct {
-		Title              string     `json:"title"`
-		DefaultModelSlug   string     `json:"default_model_slug"`
-		CreateTime         float64    `json:"create_time"`
+		Title              string  `json:"title"`
+		DefaultModelSlug   string  `json:"default_model_slug"`
+		CreateTime         float64 `json:"create_time"`
 		LinearConversation []struct {
 			Message *struct {
 				Author struct {

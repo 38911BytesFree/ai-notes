@@ -92,4 +92,3 @@ func TestCleanAndTruncateNote_EmptySlices(t *testing.T) {
 		t.Errorf("expected non-nil Tags slice, got nil")
 	}
 }
-

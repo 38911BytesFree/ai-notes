@@ -8,19 +8,19 @@ import (
 )
 
 type Config struct {
-	BindAddress               string
-	GoogleCloudProject        string
-	FirestoreEmulatorHost     string
-	FirebaseAuthEmulatorHost  string
-	TranscriptsBucket         string
-	GeminiModel               string
-	VertexLocation            string
-	IngestMonthlyLimit        int
-	SummariserMaxChars        int
-	UseFakeAI                 bool
-	ServiceAudience           string
-	WebServiceAccount         string
-	ServiceDevToken           string
+	BindAddress              string
+	GoogleCloudProject       string
+	FirestoreEmulatorHost    string
+	FirebaseAuthEmulatorHost string
+	TranscriptsBucket        string
+	GeminiModel              string
+	VertexLocation           string
+	IngestMonthlyLimit       int
+	SummariserMaxChars       int
+	UseFakeAI                bool
+	ServiceAudience          string
+	WebServiceAccount        string
+	ServiceDevToken          string
 }
 
 func Load() (*Config, error) {
@@ -74,15 +74,15 @@ func Load() (*Config, error) {
 		GoogleCloudProject:       projectID,
 		FirestoreEmulatorHost:    firestoreEmu,
 		FirebaseAuthEmulatorHost: authEmu,
-		TranscriptsBucket:         transcriptsBucket,
-		GeminiModel:               geminiModel,
-		VertexLocation:            vertexLocation,
-		IngestMonthlyLimit:        ingestMonthlyLimit,
-		SummariserMaxChars:        summariserMaxChars,
-		UseFakeAI:                 useFakeAI,
-		ServiceAudience:           serviceAudience,
-		WebServiceAccount:         webServiceAccount,
-		ServiceDevToken:           serviceDevToken,
+		TranscriptsBucket:        transcriptsBucket,
+		GeminiModel:              geminiModel,
+		VertexLocation:           vertexLocation,
+		IngestMonthlyLimit:       ingestMonthlyLimit,
+		SummariserMaxChars:       summariserMaxChars,
+		UseFakeAI:                useFakeAI,
+		ServiceAudience:          serviceAudience,
+		WebServiceAccount:        webServiceAccount,
+		ServiceDevToken:          serviceDevToken,
 	}, nil
 }
 

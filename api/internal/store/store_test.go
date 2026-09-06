@@ -24,15 +24,15 @@ func TestMemoryStoreNoteCRUD(t *testing.T) {
 
 	// Create Note
 	note := &notes.Note{
-		ID:         "test-note-1",
-		OwnerUID:   uid,
-		Title:      "First Note",
-		Summary:    "Summary of first note",
-		Takeaways:  []string{"Point 1", "Point 2", "Point 3"},
-		Category:   "Programming",
-		Tags:       []string{"go", "testing"},
-		Embedding:  firestore.Vector32{0.1, 0.2, 0.3},
-		CreatedAt:  time.Now().UTC().Add(-10 * time.Minute),
+		ID:        "test-note-1",
+		OwnerUID:  uid,
+		Title:     "First Note",
+		Summary:   "Summary of first note",
+		Takeaways: []string{"Point 1", "Point 2", "Point 3"},
+		Category:  "Programming",
+		Tags:      []string{"go", "testing"},
+		Embedding: firestore.Vector32{0.1, 0.2, 0.3},
+		CreatedAt: time.Now().UTC().Add(-10 * time.Minute),
 	}
 	if err := s.CreateNote(ctx, note); err != nil {
 		t.Fatalf("CreateNote failed: %v", err)

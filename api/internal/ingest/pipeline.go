@@ -26,12 +26,12 @@ type PipelineConfig struct {
 }
 
 type Pipeline struct {
-	cfg        PipelineConfig
-	store      store.Store
-	blobStore  store.BlobStore
-	summariser ai.Summariser
-	embedder   ai.Embedder
-	logger     *slog.Logger
+	cfg             PipelineConfig
+	store           store.Store
+	blobStore       store.BlobStore
+	summariser      ai.Summariser
+	embedder        ai.Embedder
+	logger          *slog.Logger
 	Clock           func() time.Time
 	fetcherResolver func(rawURL string) (Fetcher, error)
 }

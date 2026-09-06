@@ -16,7 +16,7 @@ const (
 	ErrCodeUnauthenticated     ErrorCode = "unauthenticated"      // 401
 	ErrCodeNotFound            ErrorCode = "not_found"            // 404
 	ErrCodeInvalidArgument     ErrorCode = "invalid_argument"     // 400
-	ErrCodeUnsupportedProvider ErrorCode = "unsupported_provider"  // 400
+	ErrCodeUnsupportedProvider ErrorCode = "unsupported_provider" // 400
 	ErrCodeFetchFailed         ErrorCode = "fetch_failed"         // 502
 	ErrCodeFetchBlocked        ErrorCode = "fetch_blocked"        // 502
 	ErrCodeTranscriptEmpty     ErrorCode = "transcript_empty"     // 400

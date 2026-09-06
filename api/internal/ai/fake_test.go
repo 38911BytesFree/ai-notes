@@ -21,7 +21,7 @@ func TestFakeSummariser(t *testing.T) {
 				Content: "How do I implement a rate limiter in Go?",
 			},
 			{
-				Role: "assistant",
+				Role:    "assistant",
 				Content: "Here is an implementation using token bucket:\n\n```go\nfunc NewLimiter() {\n}\n```\n\nHope this helps!",
 			},
 		},
