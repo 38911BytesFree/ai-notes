@@ -97,4 +97,29 @@ describe("app.connect", () => {
       screen.getByText(/claude mcp add --transport http ai-notes https:\/\/ai-notes\.example\.com\/mcp/)
     ).toBeInTheDocument();
   });
+
+  it("renders Save from your browser and Save from your phone sections", () => {
+    render(
+      <MemoryRouter>
+        <ConnectContent
+          pats={dummyPats}
+          publicBaseUrl="https://ai-notes.example.com"
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: "Save from your browser" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "+ Save to AI Notes" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "+ Save to AI Notes" })
+    ).toHaveAttribute(
+      "href",
+      "javascript:void(open('https://ai-notes.example.com/app/share?url='+encodeURIComponent(location.href),'_blank'))"
+    );
+
+    expect(screen.getByRole("heading", { name: "Save from your phone" })).toBeInTheDocument();
+    expect(screen.getByText(/Android \(PWA Share Target\)/)).toBeInTheDocument();
+    expect(screen.getByText(/iOS \/ iPhone/)).toBeInTheDocument();
+    expect(screen.getByText(/Mobile Safari on iOS does not support the Web Share Target API/)).toBeInTheDocument();
+  });
 });

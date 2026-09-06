@@ -9,6 +9,7 @@ import {
   type PATListItem,
   type CreatePATResponse,
 } from "~/services/pats-api.server";
+import { getBookmarkletCode } from "~/services/bookmarklet";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { user } = await requireAuth(request);
@@ -82,6 +83,19 @@ export function ConnectContent({
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
   const [tokenToRevoke, setTokenToRevoke] = useState<PATListItem | null>(null);
+  const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
+
+  const bookmarkletCode = getBookmarkletCode(publicBaseUrl);
+
+  const handleCopyBookmarklet = async () => {
+    try {
+      await navigator.clipboard.writeText(bookmarkletCode);
+      setCopiedBookmarklet(true);
+      setTimeout(() => setCopiedBookmarklet(false), 2500);
+    } catch {
+      setCopiedBookmarklet(false);
+    }
+  };
 
   // If newly created from action or passed as prop
   const createdToken = fetcher.data?.created ?? initialCreatedToken;
@@ -368,6 +382,85 @@ export function ConnectContent({
                 {copiedSnippet === "chatgpt" ? "Copied!" : "Copy URL"}
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Save from your browser */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Save from your browser</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Drag the button below to your bookmarks bar, or copy the bookmarklet code.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg bg-gray-50 border border-gray-200">
+          <a
+            ref={(el) => {
+              if (el) el.setAttribute("href", bookmarkletCode);
+            }}
+            title="Drag this button to your bookmarks toolbar"
+            className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-gray-800 cursor-grab active:cursor-grabbing transition-colors"
+          >
+            + Save to AI Notes
+          </a>
+          <p className="text-xs text-gray-600">
+            Drag this button to your browser&apos;s bookmarks toolbar. While viewing any shared ChatGPT or Claude conversation, click the bookmark to save it to your library.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="bookmarklet-code" className="block text-xs font-medium text-gray-700">
+              Bookmarklet code
+            </label>
+            <button
+              type="button"
+              onClick={handleCopyBookmarklet}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+            >
+              {copiedBookmarklet ? "Copied!" : "Copy code"}
+            </button>
+          </div>
+          <textarea
+            id="bookmarklet-code"
+            readOnly
+            rows={2}
+            value={bookmarkletCode}
+            className="w-full rounded-md border border-gray-300 bg-gray-50 p-2.5 font-mono text-xs text-gray-700 select-all focus:outline-hidden"
+          />
+        </div>
+      </section>
+
+      {/* Save from your phone */}
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Save from your phone</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Install AI Notes on your mobile device for quick sharing.
+          </p>
+        </div>
+
+        <div className="space-y-4 text-xs text-gray-700 leading-relaxed">
+          <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-1.5">
+            <h3 className="font-semibold text-gray-900 text-sm">Android (PWA Share Target)</h3>
+            <p>
+              Open AI Notes in Chrome on your Android device and tap <span className="font-medium">Install app</span> or <span className="font-medium">Add to Home screen</span>.
+            </p>
+            <p className="text-gray-500">
+              Once installed, you can use Android&apos;s native share sheet directly inside ChatGPT or Claude to share conversations straight to AI Notes.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-1.5">
+            <h3 className="font-semibold text-gray-900 text-sm">iOS / iPhone</h3>
+            <p>
+              Mobile Safari on iOS does not support the Web Share Target API.
+            </p>
+            <p className="text-gray-500">
+              To save from an iPhone, create a bookmark in Safari using the bookmarklet code above, or copy the conversation link and paste it into the AI Notes app.
+            </p>
           </div>
         </div>
       </section>
