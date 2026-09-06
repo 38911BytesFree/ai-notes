@@ -8,6 +8,7 @@ import {
 import { hashToken, isAccessToken, isPatToken } from "../oauth/tokens";
 import { getPATByHash } from "../app/services/pats-api.server";
 import { getOAuthToken } from "../app/services/oauth-api.server";
+import { getResourceUrl } from "../oauth/issuer";
 
 interface CachedAuth {
   authInfo: AuthInfo;
@@ -131,9 +132,7 @@ export class TokenVerifier implements OAuthTokenVerifier {
 export const verifier = new TokenVerifier();
 
 export function getMcpResourceMetadataUrl(): string {
-  const base = process.env.PUBLIC_BASE_URL || "http://localhost:5173";
-  const resourceUrl = new URL("/mcp", base);
-  return getOAuthProtectedResourceMetadataUrl(resourceUrl);
+  return getOAuthProtectedResourceMetadataUrl(getResourceUrl());
 }
 
 /**

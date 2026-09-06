@@ -127,7 +127,8 @@ describe("oauth.consent route", () => {
       const code = redirectUrl.searchParams.get("code");
       expect(code).toMatch(/^ain_ac_/);
       expect(redirectUrl.searchParams.get("state")).toBe("xyz-state");
-      expect(redirectUrl.searchParams.get("iss")).toBe("https://ai-notes.example.com");
+      // RFC 9207: identical to the `issuer` in the AS metadata, trailing slash included.
+      expect(redirectUrl.searchParams.get("iss")).toBe("https://ai-notes.example.com/");
 
       // Verify storeAuthorizationCode called with hashed code
       expect(oauthApi.storeAuthorizationCode).toHaveBeenCalledTimes(1);

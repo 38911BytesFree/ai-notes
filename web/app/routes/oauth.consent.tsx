@@ -6,6 +6,7 @@ import {
   clearPendingCookieHeader,
 } from "../../oauth/pending";
 import { generateAuthorizationCode } from "../../oauth/tokens";
+import { getIssuer } from "../../oauth/issuer";
 import {
   getClient,
   storeAuthorizationCode,
@@ -82,16 +83,13 @@ export async function action({ request }: ActionFunctionArgs) {
       expires_at: expiresAt,
     });
 
-    const publicBase =
-      process.env.PUBLIC_BASE_URL ||
-      `${new URL(request.url).protocol}//${new URL(request.url).host}`;
-
     const redirectUrl = new URL(pending.redirect_uri);
     redirectUrl.searchParams.set("code", code);
     if (pending.state) {
       redirectUrl.searchParams.set("state", pending.state);
     }
-    redirectUrl.searchParams.set("iss", publicBase);
+    // Must be byte-identical to the `issuer` in the AS metadata (RFC 9207).
+    redirectUrl.searchParams.set("iss", getIssuer());
 
     return redirect(redirectUrl.toString(), {
       headers: {
