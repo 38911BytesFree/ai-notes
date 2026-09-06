@@ -227,6 +227,13 @@ func (m *MemoryStore) UpdateNote(ctx context.Context, uid string, updated *notes
 	}
 	existing.HasTranscript = updated.HasTranscript
 	existing.TranscriptBytes = updated.TranscriptBytes
+	if updated.Visibility != "" {
+		existing.Visibility = updated.Visibility
+	}
+	existing.PIIFlags = updated.PIIFlags
+	existing.PIIScannedHash = updated.PIIScannedHash
+	existing.PIIAckHash = updated.PIIAckHash
+	existing.PublishedAt = updated.PublishedAt
 	existing.UpdatedAt = m.now()
 
 	cp := *existing

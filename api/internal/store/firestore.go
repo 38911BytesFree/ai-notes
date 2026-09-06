@@ -304,6 +304,13 @@ func (s *FirestoreStore) UpdateNote(ctx context.Context, uid string, updated *no
 		}
 		current.HasTranscript = updated.HasTranscript
 		current.TranscriptBytes = updated.TranscriptBytes
+		if updated.Visibility != "" {
+			current.Visibility = updated.Visibility
+		}
+		current.PIIFlags = updated.PIIFlags
+		current.PIIScannedHash = updated.PIIScannedHash
+		current.PIIAckHash = updated.PIIAckHash
+		current.PublishedAt = updated.PublishedAt
 		current.UpdatedAt = s.now()
 
 		return tx.Set(docRef, current)

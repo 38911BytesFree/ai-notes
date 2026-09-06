@@ -26,6 +26,10 @@ type Note struct {
 	EmbeddingTextHash string             `json:"embedding_text_hash,omitempty" firestore:"embedding_text_hash"`
 	HasTranscript     bool               `json:"has_transcript" firestore:"has_transcript"`
 	TranscriptBytes   int                `json:"transcript_bytes,omitempty" firestore:"transcript_bytes"`
+	PIIFlags          []string           `json:"pii_flags,omitempty" firestore:"pii_flags,omitempty"`
+	PIIScannedHash    string             `json:"pii_scanned_hash,omitempty" firestore:"pii_scanned_hash,omitempty"`
+	PIIAckHash        string             `json:"pii_ack_hash,omitempty" firestore:"pii_ack_hash,omitempty"`
+	PublishedAt       *time.Time         `json:"published_at,omitempty" firestore:"published_at,omitempty"`
 	CreatedAt         time.Time          `json:"created_at" firestore:"created_at"`
 	UpdatedAt         time.Time          `json:"updated_at" firestore:"updated_at"`
 	Distance          *float64           `json:"distance,omitempty" firestore:"-"`
