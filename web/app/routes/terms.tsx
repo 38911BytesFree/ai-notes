@@ -34,14 +34,38 @@ export default function Terms() {
             You are responsible for safeguarding your account credentials. You retain all rights to the conversations and notes stored in your library.
           </p>
 
-          <h2 className="text-lg font-semibold text-gray-900">4. Prohibited Uses</h2>
+          <h2 className="text-lg font-semibold text-gray-900">4. Publishing and Visibility</h2>
           <p>
-            You agree not to misuse the service, attempt unauthorized access, or ingest content that violates applicable laws or intellectual property rights.
+            Notes in AI Notes are private by default. You may optionally publish notes by setting their visibility to <strong>public</strong> or <strong>unlisted</strong>:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Public</strong> notes are displayed in the public feed, included in public sitemaps, and accessible to search engines and web crawlers.
+            </li>
+            <li>
+              <strong>Unlisted</strong> notes are accessible to anyone who possesses the direct link (URL). While unlisted notes are omitted from public feeds and served with no-index directives for search engines, <em>an unlisted link is not secret or confidential</em>. Anyone with access to the link may view its content.
+            </li>
+          </ul>
+          <p>
+            You represent and warrant that any content you publish (whether public or unlisted) does not violate third-party rights, contain illegal materials, or disclose sensitive confidential credentials. Raw conversation transcripts are never published or made publicly accessible.
           </p>
 
-          <h2 className="text-lg font-semibold text-gray-900">5. Limitation of Liability</h2>
+          <h2 className="text-lg font-semibold text-gray-900">5. Content Moderation and Abuse Contact</h2>
           <p>
-            To the maximum extent permitted by law, AI Notes shall not be liable for any indirect, incidental, or consequential damages arising out of your use of the service.
+            AI Notes reserves the right to remove or restrict access to any public or unlisted note that violates these Terms or applicable laws. To report abuse, copyright infringement, or illicit content, please contact us at{" "}
+            <a href="mailto:abuse@ai-notes.io" className="text-blue-600 underline hover:text-blue-800">
+              abuse@ai-notes.io
+            </a>.
+          </p>
+
+          <h2 className="text-lg font-semibold text-gray-900">6. Prohibited Uses</h2>
+          <p>
+            You agree not to misuse the service, attempt unauthorized access, bypass automated rate limits or PII scanning gates, or ingest content that violates applicable laws or intellectual property rights.
+          </p>
+
+          <h2 className="text-lg font-semibold text-gray-900">7. Limitation of Liability</h2>
+          <p>
+            To the maximum extent permitted by law, AI Notes shall not be liable for any indirect, incidental, or consequential damages arising out of your use of the service or the publication of user-generated notes.
           </p>
         </section>
       </main>

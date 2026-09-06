@@ -73,6 +73,34 @@ AI Notes exposes a remote Model Context Protocol (MCP) streamable HTTP server en
    ```
 4. Connect using transport **HTTP**, URL `http://127.0.0.1:5173/mcp`, with header `Authorization: Bearer <your_token>`.
 
+## Publishing & Public Notes
+
+AI Notes supports three note visibility tiers:
+- **Private** (default): Only visible to the note owner. Transcripts, summaries, and takeaways remain completely confidential.
+- **Unlisted**: Accessible via direct permalink (`/n/:id`) to anyone possessing the URL. Not listed on the public feed, excluded from sitemaps, and served with `X-Robots-Tag: noindex, nofollow`.
+- **Public**: Discoverable via the public feed (`/feed`), included in `sitemap.xml`, and indexed by search engines when `PUBLIC_INDEXING="true"`.
+
+### Deterministic PII Scanning Gate
+Before any note can be published as `unlisted` or `public`, a deterministic regex scanner runs across the title, summary, takeaways, tags, and code blocks. If potential personal data or secrets are identified (email addresses, phone numbers, API keys, private keys), publishing is blocked until the owner explicitly reviews and acknowledges the detected items.
+
+### Public Feed & Reader View
+- **Feed (`/feed`)**: Fast, paginated browse experience showing public notes grouped by taxonomy category, with cursor pagination.
+- **Note View (`/n/:id`)**: Server-rendered, clean distraction-free reader view with Open Graph preview cards, Twitter cards, and escaped JSON-LD Article structured data. Raw conversation transcripts are never exposed on public or unlisted notes.
+
+## Mobile & Browser Integrations
+
+### Progressive Web App (PWA) & Web Share Target
+AI Notes installs as a Progressive Web App on mobile (Android / Chrome). By registering as a Web Share Target (`/manifest.webmanifest`), you can tap "Share" inside the ChatGPT, Claude, Gemini, or Grok apps and select **AI Notes** to immediately route the share link to `/app/share` and summarise it into your library.
+
+### Desktop Browser Bookmarklet
+Available at `/app/connect`, the **Save to AI Notes** bookmarklet can be dragged to your browser's bookmarks bar in Chrome, Firefox, Safari, or Edge. When viewing any AI conversation share page, clicking the bookmarklet opens AI Notes in a new tab with the URL pre-populated.
+
+### Supported Conversation Providers
+- **ChatGPT** (`chatgpt.com`, `chat.openai.com`): Automated server-side fetch & parse.
+- **Claude** (`claude.ai`): Share link detection; manual transcript paste supported (due to Cloudflare bot protection on datacenter IPs).
+- **Gemini** (`gemini.google.com`): Share link detection; manual transcript paste supported (requires authenticated Google RPCs).
+- **Grok** (`grok.com`): Share link detection; manual transcript paste supported (due to Cloudflare challenges).
+
 ## Environment Variables
 
 | Variable | Service | Purpose | Default |
@@ -91,6 +119,8 @@ AI Notes exposes a remote Model Context Protocol (MCP) streamable HTTP server en
 | `PUBLIC_BASE_URL` | web | Canonical issuer and resource origin URL | `http://127.0.0.1:5173` |
 | `OAUTH_ACCESS_TOKEN_TTL_SECONDS` | web | OAuth access token lifetime in seconds | `3600` |
 | `MCP_ALLOWED_HOSTS` | web | Optional comma-separated hosts allowed by MCP handler | None |
+| `PUBLIC_INDEXING` | web | If `"true"`, allows search crawlers in `robots.txt`/`sitemap.xml` and drops blanket `noindex` | `"false"` |
+| `ABUSE_CONTACT_EMAIL` | web | Abuse reporting email address displayed in public note footers | `abuse@ai-notes.io` |
 | `SESSION_SECRET` | web | Session cookie encryption secret | Required |
 | `PORT` | web | Express server listen port | `5173` local, `8080` prod |
 
