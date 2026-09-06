@@ -381,7 +381,7 @@ export function ConnectContent({
             </h3>
             <p className="text-sm text-gray-600">
               Are you sure you want to revoke the token{" "}
-              <span className="font-semibold">"{tokenToRevoke.label}"</span>? Any client using this token will immediately lose access.
+              <span className="font-semibold">"{tokenToRevoke.label}"</span>? Any client using this token loses access within a minute, and the token cannot be restored.
             </p>
             <div className="flex justify-end space-x-3 pt-2">
               <button

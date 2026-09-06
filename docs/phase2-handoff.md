@@ -27,7 +27,13 @@ Phase 2 is complete when every item below is true:
 
 - [ ] `/app/connect` lets a signed-in user create a personal access token
       (shown once, prefix visible afterwards), see the list, and revoke one.
-      A revoked token is refused on the next MCP request.
+      A revoked token is refused within 60 seconds, once the verifier cache
+      entry for its hash has expired. (Amended 6 September 2026: this said
+      "on the next MCP request", which the 60 second positive cache in
+      section 8 makes impossible. The cache is the deliberate choice — it
+      keeps a burst of tool calls to one Go round-trip, and clearing an entry
+      on revoke would only help whichever Cloud Run instance served the
+      revoke. Anything needing immediate revocation has to drop the cache.)
 - [ ] `GET ${PUBLIC_BASE_URL}/mcp` without a token returns 401 with a
       `WWW-Authenticate` header pointing at
       `/.well-known/oauth-protected-resource/mcp`, and both well-known
@@ -268,7 +274,9 @@ A single module-level `firebase-admin` app; never per request.
 `ain_at_` → hash → Go `/v1/oauth/tokens/{hash}` → `AuthInfo` with the stored
 client, scopes, expiry, `resource`, and `extra: {uid}`. Anything else throws
 `OAuthError(InvalidToken)`. Cache positive results for 60 seconds keyed by
-hash so a burst of tool calls costs one Go round-trip. `requireBearerAuth`
+hash so a burst of tool calls costs one Go round-trip. The cost of that cache
+is a revocation window of up to 60 seconds, per instance; see the amended
+first exit criterion in section 2. `requireBearerAuth`
 gets `resourceMetadataUrl` from `getOAuthProtectedResourceMetadataUrl(new URL("/mcp", PUBLIC_BASE_URL))`.
 
 ### `mcp/server.ts`

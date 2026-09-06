@@ -24,7 +24,12 @@ const verifierCache = new Map<string, CachedAuth>();
  * `ain_at_`  -> hash -> Go /v1/oauth/tokens/{hash}
  *
  * Any other prefix throws OAuthError(InvalidToken).
- * Positive results are cached for 60 seconds keyed by token hash.
+ *
+ * Positive results are cached for 60 seconds keyed by token hash, so a burst of
+ * tool calls costs one Go round-trip. The price is a revocation window of up to
+ * 60 seconds: evicting the entry on revoke would only help whichever Cloud Run
+ * instance served the revoke, so the window is accepted rather than papered
+ * over. See the first exit criterion in docs/phase2-handoff.md section 2.
  */
 export async function verifyAccessToken(token: string): Promise<AuthInfo> {
   if (!token || typeof token !== "string") {
