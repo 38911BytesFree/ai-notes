@@ -7,6 +7,7 @@ import {
   registerClient as registerClientInApi,
   type OAuthClientRecord,
 } from "../app/services/oauth-api.server";
+import { hashToken } from "./tokens";
 
 export function validateRedirectUri(uri: string): void {
   try {
@@ -40,15 +41,17 @@ export class ClientsStore implements OAuthRegisteredClientsStore {
         return undefined;
       }
 
+      // No client_secret: we hold only its hash, so the SDK's own comparison
+      // cannot run. `verifyClientSecret` in oauth/client-auth.ts does it instead.
       return {
         client_id: record.client_id,
-        client_secret: record.client_secret,
         client_name: record.client_name,
         redirect_uris: record.redirect_uris,
         grant_types: record.grant_types,
         response_types: record.response_types,
         token_endpoint_auth_method: record.token_endpoint_auth_method,
         scope: formatScope(record),
+        client_secret_expires_at: record.client_secret_expires_at,
         client_id_issued_at: record.created_at
           ? Math.floor(new Date(record.created_at).getTime() / 1000)
           : Math.floor(Date.now() / 1000),
@@ -75,14 +78,22 @@ export class ClientsStore implements OAuthRegisteredClientsStore {
           ? client.scope.split(" ").filter(Boolean)
           : client.scopes ?? ["notes:read", "notes:write"];
 
+      // The SDK mints the plaintext secret for a confidential client. Store only
+      // its hash; the plaintext goes back in this one registration response and
+      // is never recoverable afterwards.
+      const clientSecret: string | undefined =
+        typeof client.client_secret === "string" ? client.client_secret : undefined;
+
       const clientRecord: OAuthClientRecord = {
         client_id: client.client_id,
-        client_secret: client.client_secret,
+        client_secret_hash: clientSecret ? hashToken(clientSecret) : undefined,
+        client_secret_expires_at: client.client_secret_expires_at,
         client_name: client.client_name,
         redirect_uris: redirectUris,
         grant_types: client.grant_types ?? ["authorization_code", "refresh_token"],
         response_types: client.response_types ?? ["code"],
-        token_endpoint_auth_method: client.token_endpoint_auth_method ?? "none",
+        token_endpoint_auth_method:
+          client.token_endpoint_auth_method ?? (clientSecret ? "client_secret_post" : "none"),
         scope: rawScopes.join(" "),
         scopes: rawScopes,
       };
@@ -91,7 +102,8 @@ export class ClientsStore implements OAuthRegisteredClientsStore {
 
       return {
         client_id: stored.client_id,
-        client_secret: stored.client_secret,
+        client_secret: clientSecret,
+        client_secret_expires_at: client.client_secret_expires_at,
         client_name: stored.client_name,
         redirect_uris: stored.redirect_uris,
         grant_types: stored.grant_types,

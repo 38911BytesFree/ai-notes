@@ -8,6 +8,8 @@ import { mcpAuthRouter } from "@modelcontextprotocol/server-legacy/auth";
 import { verifier, getMcpResourceMetadataUrl } from "./mcp/verifier";
 import { buildServer } from "./mcp/server";
 import { oauthProvider } from "./oauth/provider";
+import { getIssuerUrl, getPublicBaseUrl, getResourceUrl } from "./oauth/issuer";
+import { verifyClientSecret } from "./oauth/client-auth";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -19,28 +21,23 @@ const PORT = Number(process.env.PORT || 3000);
 // Canonical host 301-redirect: redirect any request whose Host is not
 // PUBLIC_BASE_URL's host to the same path on PUBLIC_BASE_URL.
 // Skip when PUBLIC_BASE_URL is a localhost origin so dev and tests are unaffected.
-const publicBaseUrl = process.env.PUBLIC_BASE_URL?.trim();
-if (publicBaseUrl) {
-  try {
-    const parsedBase = new URL(publicBaseUrl);
-    const targetHost = parsedBase.host;
-    const isLocalhost =
-      targetHost.startsWith("localhost") ||
-      targetHost.startsWith("127.0.0.1") ||
-      targetHost.startsWith("[::1]");
+const publicBaseUrl = getPublicBaseUrl();
+{
+  const targetHost = new URL(publicBaseUrl).host;
+  const isLocalhost =
+    targetHost.startsWith("localhost") ||
+    targetHost.startsWith("127.0.0.1") ||
+    targetHost.startsWith("[::1]");
 
-    if (!isLocalhost) {
-      app.use((req: Request, res: Response, next: NextFunction) => {
-        const hostHeader = req.headers.host;
-        if (hostHeader && hostHeader !== targetHost) {
-          const targetUrl = new URL(req.originalUrl || req.url, publicBaseUrl);
-          return res.redirect(301, targetUrl.toString());
-        }
-        next();
-      });
-    }
-  } catch (err) {
-    console.warn("Failed to parse PUBLIC_BASE_URL for host redirect:", err);
+  if (!isLocalhost) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      const hostHeader = req.headers.host;
+      if (hostHeader && hostHeader !== targetHost) {
+        const targetUrl = new URL(req.originalUrl || req.url, publicBaseUrl);
+        return res.redirect(301, targetUrl.toString());
+      }
+      next();
+    });
   }
 }
 
@@ -83,9 +80,13 @@ app.use("/mcp", bearerAuthMiddleware, (req: Request, res: Response) => {
 // =============================================================================
 // OAUTH AUTHORIZATION SERVER
 // =============================================================================
-const issuerBase = process.env.PUBLIC_BASE_URL?.trim() || `http://localhost:${PORT}`;
-const issuerUrl = new URL(issuerBase);
-const resourceServerUrl = new URL("/mcp", issuerUrl);
+const issuerUrl = getIssuerUrl();
+const resourceServerUrl = getResourceUrl();
+
+// The SDK's own client authentication only fires when getClient() hands back a
+// plaintext client_secret, which we never store. Verify the presented secret
+// against the stored hash before the router's handlers run.
+app.use(["/token", "/revoke"], express.json(), verifyClientSecret());
 
 app.use(
   mcpAuthRouter({

@@ -2,7 +2,9 @@ import { backendFetch, BACKEND_URL } from "./backend.server";
 
 export interface OAuthClientRecord {
   client_id: string;
-  client_secret?: string;
+  /** SHA-256 hex of the client secret. The plaintext is never sent to Go. */
+  client_secret_hash?: string;
+  client_secret_expires_at?: number;
   client_name?: string;
   redirect_uris: string[];
   grant_types: string[];
