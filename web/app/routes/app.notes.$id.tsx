@@ -6,6 +6,7 @@ import * as notesApi from "~/services/notes-api.server";
 import type { Note } from "~/services/notes-api.server";
 import { CATEGORIES } from "~/components/CategoryChips";
 import { CodeBlock } from "~/components/CodeBlock";
+import { VisibilityControl } from "~/components/VisibilityControl";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireAuth(request);
@@ -19,7 +20,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Note not found", { status: 404 });
   }
 
-  return { note: res.data };
+  const publicBaseUrl =
+    process.env.PUBLIC_BASE_URL ||
+    `${new URL(request.url).protocol}//${new URL(request.url).host}`;
+
+  return { note: res.data, publicBaseUrl };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -48,6 +53,28 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return Response.json({ ok: true });
   }
 
+  if (intent === "visibility") {
+    const visibility = String(formData.get("visibility") ?? "").trim() as
+      | "private"
+      | "unlisted"
+      | "public";
+    if (visibility !== "private" && visibility !== "unlisted" && visibility !== "public") {
+      return Response.json({ code: "invalid_argument" }, { status: 400 });
+    }
+    const acknowledgePii =
+      formData.get("acknowledge_pii") === "true" ||
+      formData.get("acknowledge_pii") === "on";
+
+    const res = await notesApi.setNoteVisibility(request, id, visibility, acknowledgePii);
+    if (!res.ok) {
+      return Response.json(
+        { code: res.code, pii_unacknowledged: res.code === "pii_unacknowledged" },
+        { status: res.code === "pii_unacknowledged" ? 403 : 400 }
+      );
+    }
+    return Response.json({ ok: true, note: res.data });
+  }
+
   if (intent === "patch") {
     const title = String(formData.get("title") ?? "").trim();
     const summary = String(formData.get("summary") ?? "").trim();
@@ -62,6 +89,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
+    const acknowledgePii =
+      formData.get("acknowledge_pii") === "true" ||
+      formData.get("acknowledge_pii") === "on";
 
     const res = await notesApi.patchNote(request, id, {
       title,
@@ -69,10 +99,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       takeaways,
       category,
       tags,
+      acknowledge_pii: acknowledgePii,
     });
 
     if (!res.ok) {
-      return Response.json({ code: res.code }, { status: 400 });
+      return Response.json(
+        { code: res.code, pii_unacknowledged: res.code === "pii_unacknowledged" },
+        { status: res.code === "pii_unacknowledged" ? 403 : 400 }
+      );
     }
     return Response.json({ ok: true, note: res.data });
   }
@@ -88,7 +122,7 @@ function formatBytes(bytes?: number): string {
 }
 
 export default function NoteDetailView() {
-  const { note: initialNote } = useLoaderData<typeof loader>();
+  const { note: initialNote, publicBaseUrl } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher<{ ok?: boolean; note?: Note; code?: string }>();
 
@@ -316,7 +350,8 @@ export default function NoteDetailView() {
           </fetcher.Form>
         ) : (
           /* View Mode */
-          <article className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+          <>
+            <article className="rounded-xl border border-gray-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="inline-flex items-center rounded-sm bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800">
@@ -427,7 +462,16 @@ export default function NoteDetailView() {
               )}
             </div>
           </article>
-        )}
+
+          {/* Visibility & Sharing */}
+          <VisibilityControl
+            noteId={note.id}
+            visibility={note.visibility}
+            piiFlags={note.pii_flags}
+            publicBaseUrl={publicBaseUrl}
+          />
+        </>
+      )}
       </main>
     </div>
   );

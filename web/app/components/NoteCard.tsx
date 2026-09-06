@@ -3,9 +3,10 @@ import type { NoteListItem } from "~/services/notes-api.server";
 
 interface NoteCardProps {
   note: NoteListItem;
+  to?: string;
 }
 
-export function NoteCard({ note }: NoteCardProps) {
+export function NoteCard({ note, to }: NoteCardProps) {
   const firstLineSummary = note.summary ? note.summary.split("\n")[0] : "";
   const dateStr = note.created_at
     ? new Date(note.created_at).toLocaleDateString("en-GB", {
@@ -24,7 +25,7 @@ export function NoteCard({ note }: NoteCardProps) {
 
   return (
     <Link
-      to={`/app/notes/${note.id}`}
+      to={to ?? `/app/notes/${note.id}`}
       className="block rounded-lg border border-gray-200 bg-white p-5 shadow-xs hover:border-gray-300 hover:shadow-sm transition-all text-left"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
@@ -39,6 +40,16 @@ export function NoteCard({ note }: NoteCardProps) {
         <span className="inline-flex items-center rounded-sm bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100">
           {providerLabel}
         </span>
+        {note.visibility === "public" && (
+          <span className="inline-flex items-center rounded-sm bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 border border-green-200">
+            Public
+          </span>
+        )}
+        {note.visibility === "unlisted" && (
+          <span className="inline-flex items-center rounded-sm bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+            Unlisted
+          </span>
+        )}
         {note.distance !== undefined && (
           <span className="inline-flex items-center rounded-sm bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 border border-purple-100">
             Distance: {note.distance.toFixed(3)}

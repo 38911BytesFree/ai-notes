@@ -53,6 +53,18 @@ vi.mock("~/services/notes-api.server", async () => {
         title: "Patched Title",
       },
     })),
+    setNoteVisibility: vi.fn(async (_req, _id, visibility, acknowledgePii) => {
+      if (visibility === "public" && !acknowledgePii) {
+        return { ok: false, code: "pii_unacknowledged" };
+      }
+      return {
+        ok: true,
+        data: {
+          ...fixtureNote,
+          visibility,
+        },
+      };
+    }),
   };
 });
 
@@ -60,7 +72,7 @@ vi.mock("react-router", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("react-router");
   return {
     ...actual,
-    useLoaderData: () => ({ note: currentNote }),
+    useLoaderData: () => ({ note: currentNote, publicBaseUrl: "https://example.com" }),
     useFetcher: () => ({
       data: null,
       state: "idle",
@@ -150,6 +162,57 @@ describe("NoteDetailView", () => {
     const body = await resp.json();
     expect(body.ok).toBe(true);
     expect(body.note.title).toBe("Patched Title");
+  });
+
+  it("refuses visibility change when PII is unacknowledged", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "visibility");
+    params.append("visibility", "public");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(403);
+    const body = await resp.json();
+    expect(body.code).toBe("pii_unacknowledged");
+    expect(body.pii_unacknowledged).toBe(true);
+  });
+
+  it("accepts visibility change when PII is acknowledged", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "visibility");
+    params.append("visibility", "public");
+    params.append("acknowledge_pii", "true");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.note.visibility).toBe("public");
   });
 });
 
