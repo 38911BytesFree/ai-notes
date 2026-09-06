@@ -3,6 +3,7 @@ import { backendFetch, BACKEND_URL } from "../../app/services/backend.server";
 import { getErrorMessage } from "../../app/services/error-messages";
 import { uidToIdToken } from "../identity";
 import { requireScope } from "./scope-guard";
+import { getPublicBaseUrl } from "../../oauth/issuer";
 import { SCOPE_READ } from "../../oauth/scopes";
 import { TAXONOMY } from "./save-note";
 
@@ -86,7 +87,7 @@ export async function handleSearchNotes(
       }>;
     };
 
-    const publicBase = process.env.PUBLIC_BASE_URL || "http://localhost:5173";
+    const publicBase = getPublicBaseUrl();
     const rawNotes = data.notes ?? [];
 
     const notes = rawNotes.map((n) => ({
