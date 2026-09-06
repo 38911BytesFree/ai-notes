@@ -203,7 +203,13 @@ export default function App() {
               {detected && (
                 <div className="absolute right-3 bottom-3">
                   <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 border border-blue-200">
-                    {detected === "chatgpt" ? "ChatGPT link detected" : "Claude link detected"}
+                    {detected === "chatgpt"
+                      ? "ChatGPT link detected"
+                      : detected === "claude"
+                      ? "Claude link detected"
+                      : detected === "gemini"
+                      ? "Gemini link detected"
+                      : "Grok link detected"}
                   </span>
                 </div>
               )}

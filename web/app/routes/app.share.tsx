@@ -164,7 +164,7 @@ export default function ShareTargetRoute() {
                         setInputUrl(e.target.value.trim());
                       }
                     }}
-                    placeholder="Paste a ChatGPT or Claude share link, or paste the raw conversation text..."
+                    placeholder="Paste a ChatGPT, Claude, Gemini, or Grok share link, or paste the raw conversation text..."
                     className="w-full rounded-md border border-gray-300 p-3 text-sm shadow-xs focus:border-gray-900 focus:outline-hidden focus:ring-1 focus:ring-gray-900"
                   />
                 </div>

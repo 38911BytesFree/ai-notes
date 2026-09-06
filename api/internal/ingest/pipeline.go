@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"ainotes/internal/ai"
+	"ainotes/internal/ingest/providers/claude"
+	"ainotes/internal/ingest/providers/gemini"
+	"ainotes/internal/ingest/providers/grok"
 	"ainotes/internal/notes"
 	"ainotes/internal/pii"
 	"ainotes/internal/store"
@@ -129,10 +132,10 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 		t, err := fetcher.Fetch(ctx, shareURL)
 		if err != nil {
 			rollbackQuota()
-			if errors.Is(err, ErrFetchBlocked) {
+			if errors.Is(err, ErrFetchBlocked) || errors.Is(err, claude.ErrFetchBlocked) || errors.Is(err, gemini.ErrFetchBlocked) || errors.Is(err, grok.ErrFetchBlocked) {
 				return nil, ErrFetchBlocked
 			}
-			if errors.Is(err, ErrTranscriptEmpty) {
+			if errors.Is(err, ErrTranscriptEmpty) || errors.Is(err, claude.ErrTranscriptEmpty) {
 				return nil, ErrTranscriptEmpty
 			}
 			return nil, ErrFetchFailed

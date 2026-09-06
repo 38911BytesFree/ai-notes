@@ -26,6 +26,8 @@ var DefaultAllowlist = []string{
 	"chatgpt.com",
 	"chat.openai.com",
 	"claude.ai",
+	"gemini.google.com",
+	"grok.com",
 }
 
 type ClientConfig struct {

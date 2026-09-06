@@ -1,10 +1,16 @@
-export type Provider = "chatgpt" | "claude";
+export type Provider = "chatgpt" | "claude" | "gemini" | "grok";
 
-export const ALLOWED_HOSTS = ["chatgpt.com", "chat.openai.com", "claude.ai"] as const;
+export const ALLOWED_HOSTS = [
+  "chatgpt.com",
+  "chat.openai.com",
+  "claude.ai",
+  "gemini.google.com",
+  "grok.com",
+] as const;
 
 /**
  * Detects whether a URL belongs to a supported conversation sharing provider.
- * Returns 'chatgpt', 'claude', or null.
+ * Returns 'chatgpt', 'claude', 'gemini', 'grok', or null.
  * Isomorphic so client components can inspect input dynamically.
  */
 export function detectProvider(rawUrl: string): Provider | null {
@@ -23,6 +29,12 @@ export function detectProvider(rawUrl: string): Provider | null {
     }
     if (host === "claude.ai") {
       return "claude";
+    }
+    if (host === "gemini.google.com") {
+      return "gemini";
+    }
+    if (host === "grok.com") {
+      return "grok";
     }
     return null;
   } catch {

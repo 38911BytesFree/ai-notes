@@ -8,6 +8,8 @@ import (
 
 	"ainotes/internal/ingest/providers/chatgpt"
 	"ainotes/internal/ingest/providers/claude"
+	"ainotes/internal/ingest/providers/gemini"
+	"ainotes/internal/ingest/providers/grok"
 	"ainotes/internal/notes"
 )
 
@@ -30,6 +32,8 @@ type Fetcher interface {
 var providers = []Fetcher{
 	chatgpt.NewWithClient(NewClient(DefaultAllowlist)),
 	claude.New(),
+	gemini.New(),
+	grok.New(),
 }
 
 // ProviderFor returns the matching Fetcher for the given URL, or ErrUnsupportedProvider.

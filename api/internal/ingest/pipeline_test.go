@@ -273,3 +273,26 @@ func TestPipeline_KeepTranscriptFalse(t *testing.T) {
 		t.Errorf("expected ErrBlobNotFound for blob, got %v", err)
 	}
 }
+
+func TestPipeline_BlockedProvidersReturnErrFetchBlocked(t *testing.T) {
+	p, _, _ := setupPipeline(t, 10, 200000)
+	ctx := context.Background()
+
+	blockedURLs := []string{
+		"https://claude.ai/share/claude-share-id",
+		"https://gemini.google.com/share/gemini-share-id",
+		"https://grok.com/share/grok-share-id",
+	}
+
+	for _, rawURL := range blockedURLs {
+		t.Run(rawURL, func(t *testing.T) {
+			_, err := p.Ingest(ctx, ingest.IngestRequest{
+				UID:      "user_blocked_test",
+				ShareURL: rawURL,
+			})
+			if !errors.Is(err, ingest.ErrFetchBlocked) {
+				t.Fatalf("expected ErrFetchBlocked for %s, got: %v", rawURL, err)
+			}
+		})
+	}
+}

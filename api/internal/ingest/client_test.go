@@ -131,3 +131,19 @@ func TestClientRejectsLoopbackByDefault(t *testing.T) {
 		t.Errorf("expected non-public IP rejection, got: %v", err)
 	}
 }
+
+func TestDefaultAllowlistContainsAllProviders(t *testing.T) {
+	expected := []string{
+		"chatgpt.com",
+		"chat.openai.com",
+		"claude.ai",
+		"gemini.google.com",
+		"grok.com",
+	}
+
+	for _, exp := range expected {
+		if !isAllowedHost(exp, DefaultAllowlist) {
+			t.Errorf("expected %q to be in DefaultAllowlist", exp)
+		}
+	}
+}
