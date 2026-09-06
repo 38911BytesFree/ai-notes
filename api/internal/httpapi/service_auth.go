@@ -66,6 +66,14 @@ func (s *Server) requireService(next http.Handler) http.Handler {
 			return
 		}
 
+		// Fail closed: without an expected caller, a valid Google-signed token for
+		// any account would pass, so treat the missing config as a server fault.
+		if s.cfg.WebServiceAccount == "" {
+			s.logger.Error("WEB_SERVICE_ACCOUNT not configured, refusing service auth")
+			writeError(w, ErrCodeInternalError)
+			return
+		}
+
 		callerEmail, err := s.serviceValidator.Validate(r.Context(), token, s.cfg.ServiceAudience)
 		if err != nil {
 			s.logger.Warn("service token validation failed", slog.String("error", err.Error()))
@@ -73,7 +81,7 @@ func (s *Server) requireService(next http.Handler) http.Handler {
 			return
 		}
 
-		if s.cfg.WebServiceAccount != "" && callerEmail != s.cfg.WebServiceAccount {
+		if callerEmail != s.cfg.WebServiceAccount {
 			s.logger.Warn("service token caller forbidden", slog.String("caller_email", callerEmail))
 			writeError(w, ErrCodeForbidden)
 			return

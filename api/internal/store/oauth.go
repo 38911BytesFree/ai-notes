@@ -5,10 +5,14 @@ import (
 )
 
 type OAuthClient struct {
-	ClientID                string    `firestore:"client_id" json:"client_id"`
+	ClientID string `firestore:"client_id" json:"client_id"`
+	// Only the SHA-256 hex of the client secret is ever stored. The plaintext is
+	// returned to the client once, by the registration response, and never again.
 	ClientSecretHash        string    `firestore:"client_secret_hash,omitempty" json:"client_secret_hash,omitempty"`
+	ClientSecretExpiresAt   int64     `firestore:"client_secret_expires_at,omitempty" json:"client_secret_expires_at,omitempty"`
 	ClientName              string    `firestore:"client_name" json:"client_name"`
 	RedirectURIs            []string  `firestore:"redirect_uris" json:"redirect_uris"`
+	ResponseTypes           []string  `firestore:"response_types" json:"response_types"`
 	TokenEndpointAuthMethod string    `firestore:"token_endpoint_auth_method" json:"token_endpoint_auth_method"`
 	GrantTypes              []string  `firestore:"grant_types" json:"grant_types"`
 	Scope                   string    `firestore:"scope" json:"scope"`

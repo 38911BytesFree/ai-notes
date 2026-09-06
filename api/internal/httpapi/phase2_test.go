@@ -69,7 +69,7 @@ func setupPhase2Context(t *testing.T) *phase2TestContext {
 				},
 			},
 			noEmailToken: {
-				UID: uid,
+				UID:    uid,
 				Claims: map[string]interface{}{
 					// No email or name claim
 				},
@@ -573,5 +573,70 @@ func TestCustomTokenIDTokenPreservesUserEmail(t *testing.T) {
 	}
 	if userAfter.Email != "user@example.com" {
 		t.Errorf("SECURITY/DATA INTEGRITY: email was blanked by custom token ID token, got %q", userAfter.Email)
+	}
+}
+
+func TestRequireServiceRefusesWhenWebServiceAccountUnset(t *testing.T) {
+	tc := setupPhase2Context(t)
+	// A deployment that forgot WEB_SERVICE_ACCOUNT must not accept any
+	// correctly-audienced Google token, so the middleware fails closed.
+	tc.srv.cfg.WebServiceAccount = ""
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/oauth/clients/non-existent", nil)
+	req.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	w := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 when WEB_SERVICE_ACCOUNT is unset, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestOAuthClientStoresSecretHashNotPlaintext(t *testing.T) {
+	tc := setupPhase2Context(t)
+
+	body := map[string]any{
+		"client_id":                  "client-with-secret",
+		"client_name":                "Confidential Client",
+		"client_secret":              "super-secret-plaintext",
+		"client_secret_hash":         "0123456789abcdef",
+		"client_secret_expires_at":   int64(4102444800),
+		"redirect_uris":              []string{"https://example.com/callback"},
+		"response_types":             []string{"code"},
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"token_endpoint_auth_method": "client_secret_post",
+		"scope":                      "notes:read notes:write",
+	}
+	raw, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/oauth/clients", bytes.NewReader(raw))
+	req.Header.Set("Authorization", "Bearer "+tc.serviceToken)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201 registering client, got %d: %s", w.Code, w.Body.String())
+	}
+
+	stored, err := tc.memStore.GetOAuthClient(context.Background(), "client-with-secret")
+	if err != nil {
+		t.Fatalf("client not stored: %v", err)
+	}
+	if stored.ClientSecretHash != "0123456789abcdef" {
+		t.Errorf("expected the secret hash to round-trip, got %q", stored.ClientSecretHash)
+	}
+	if stored.ClientSecretExpiresAt != 4102444800 {
+		t.Errorf("expected client_secret_expires_at to round-trip, got %d", stored.ClientSecretExpiresAt)
+	}
+	if len(stored.ResponseTypes) != 1 || stored.ResponseTypes[0] != "code" {
+		t.Errorf("expected response_types to round-trip, got %v", stored.ResponseTypes)
+	}
+
+	// The plaintext secret has no field to land in, and must not appear anywhere
+	// in the stored record.
+	blob, _ := json.Marshal(stored)
+	if bytes.Contains(blob, []byte("super-secret-plaintext")) {
+		t.Errorf("plaintext client secret was persisted: %s", blob)
 	}
 }
