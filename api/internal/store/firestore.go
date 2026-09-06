@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"ainotes/internal/notes"
+	"ainotes/internal/pii"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
@@ -312,6 +313,64 @@ func (s *FirestoreStore) UpdateNote(ctx context.Context, uid string, updated *no
 		current.PIIAckHash = updated.PIIAckHash
 		current.PublishedAt = updated.PublishedAt
 		current.UpdatedAt = s.now()
+
+		return tx.Set(docRef, current)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &current, nil
+}
+
+func (s *FirestoreStore) SetNoteVisibility(ctx context.Context, uid, id, visibility, ackHash string) (*notes.Note, error) {
+	docRef := s.client.Collection("notes").Doc(id)
+
+	var current notes.Note
+	err := s.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		doc, err := tx.Get(docRef)
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := doc.DataTo(&current); err != nil {
+			return err
+		}
+
+		if current.OwnerUID != uid {
+			return ErrNotFound
+		}
+
+		if visibility != "private" && visibility != "unlisted" && visibility != "public" {
+			return ErrInvalidArgument
+		}
+
+		flags, currentHash := pii.ScanNote(&current)
+
+		newAckHash := current.PIIAckHash
+		if ackHash != "" && (ackHash == "true" || ackHash == currentHash) {
+			newAckHash = currentHash
+		}
+
+		if visibility != "private" && len(flags) > 0 {
+			if newAckHash != currentHash {
+				return ErrPIIUnacknowledged
+			}
+		}
+
+		now := s.now()
+		current.PIIFlags = flags
+		current.PIIScannedHash = currentHash
+		current.PIIAckHash = newAckHash
+		current.Visibility = visibility
+		if visibility == "public" {
+			current.PublishedAt = &now
+		} else {
+			current.PublishedAt = nil
+		}
+		current.UpdatedAt = now
 
 		return tx.Set(docRef, current)
 	})

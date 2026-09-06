@@ -27,6 +27,10 @@ export interface Note {
   source: NoteSource;
   has_transcript: boolean;
   transcript_bytes?: number;
+  pii_flags?: string[];
+  pii_scanned_hash?: string;
+  pii_ack_hash?: string;
+  published_at?: string;
   created_at: string;
   updated_at: string;
   distance?: number;
@@ -44,6 +48,7 @@ export interface NoteListItem {
   source: NoteSource;
   has_transcript: boolean;
   transcript_bytes?: number;
+  pii_flags?: string[];
   created_at: string;
   updated_at: string;
   distance?: number;
@@ -181,11 +186,27 @@ export async function patchNote(
     takeaways?: string[];
     category?: string;
     tags?: string[];
+    acknowledge_pii?: boolean;
   }
 ): Promise<ApiResult<Note>> {
   return callApi<Note>(request, `/v1/notes/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function setNoteVisibility(
+  request: Request,
+  id: string,
+  visibility: "private" | "unlisted" | "public",
+  acknowledgePii = false
+): Promise<ApiResult<Note>> {
+  return callApi<Note>(request, `/v1/notes/${encodeURIComponent(id)}/visibility`, {
+    method: "PUT",
+    body: JSON.stringify({
+      visibility,
+      acknowledge_pii: acknowledgePii,
+    }),
   });
 }
 

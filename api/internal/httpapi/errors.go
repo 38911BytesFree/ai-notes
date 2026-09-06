@@ -24,6 +24,7 @@ const (
 	ErrCodeSummariseFailed     ErrorCode = "summarise_failed"     // 502
 	ErrCodeIngestLimitReached  ErrorCode = "ingest_limit_reached" // 429
 	ErrCodeForbidden           ErrorCode = "forbidden"            // 403
+	ErrCodePIIUnacknowledged   ErrorCode = "pii_unacknowledged"   // 403
 	ErrCodeRateLimited         ErrorCode = "rate_limited"         // 429
 	ErrCodeInternalError       ErrorCode = "internal_error"       // 500
 )
@@ -34,7 +35,7 @@ func writeError(w http.ResponseWriter, code ErrorCode) {
 	switch code {
 	case ErrCodeUnauthenticated:
 		status = http.StatusUnauthorized
-	case ErrCodeForbidden:
+	case ErrCodeForbidden, ErrCodePIIUnacknowledged:
 		status = http.StatusForbidden
 	case ErrCodeNotFound:
 		status = http.StatusNotFound

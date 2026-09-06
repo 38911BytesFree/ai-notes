@@ -11,6 +11,8 @@ import (
 var (
 	ErrNotFound           = errors.New("not found")
 	ErrIngestLimitReached = errors.New("ingest limit reached")
+	ErrPIIUnacknowledged  = errors.New("pii unacknowledged")
+	ErrInvalidArgument    = errors.New("invalid argument")
 )
 
 type User struct {
@@ -37,6 +39,7 @@ type Store interface {
 	CreateNote(ctx context.Context, note *notes.Note) error
 	GetNote(ctx context.Context, uid, id string) (*notes.Note, error)
 	UpdateNote(ctx context.Context, uid string, note *notes.Note) (*notes.Note, error)
+	SetNoteVisibility(ctx context.Context, uid, id, visibility, ackHash string) (*notes.Note, error)
 	DeleteNote(ctx context.Context, uid, id string) error
 	ListNotes(ctx context.Context, uid, category, cursor string, limit int) ([]*notes.Note, string, error)
 	SearchNotes(ctx context.Context, uid, category string, vector []float32, limit int) ([]*notes.SearchResult, error)

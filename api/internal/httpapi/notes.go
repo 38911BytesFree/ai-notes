@@ -14,6 +14,7 @@ import (
 
 	"ainotes/internal/ai"
 	"ainotes/internal/notes"
+	"ainotes/internal/pii"
 	"ainotes/internal/store"
 
 	"cloud.google.com/go/firestore"
@@ -31,6 +32,7 @@ type NoteListItem struct {
 	Source          notes.Source `json:"source"`
 	HasTranscript   bool         `json:"has_transcript"`
 	TranscriptBytes int          `json:"transcript_bytes,omitempty"`
+	PIIFlags        []string     `json:"pii_flags,omitempty"`
 	CreatedAt       time.Time    `json:"created_at"`
 	UpdatedAt       time.Time    `json:"updated_at"`
 	Distance        *float64     `json:"distance,omitempty"`
@@ -49,6 +51,7 @@ func toNoteListItem(n *notes.Note, dist *float64) NoteListItem {
 		Source:          n.Source,
 		HasTranscript:   n.HasTranscript,
 		TranscriptBytes: n.TranscriptBytes,
+		PIIFlags:        n.PIIFlags,
 		CreatedAt:       n.CreatedAt,
 		UpdatedAt:       n.UpdatedAt,
 		Distance:        dist,
@@ -191,11 +194,12 @@ func (s *Server) handleGetNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateNoteRequest struct {
-	Title     *string   `json:"title"`
-	Summary   *string   `json:"summary"`
-	Takeaways *[]string `json:"takeaways"`
-	Category  *string   `json:"category"`
-	Tags      *[]string `json:"tags"`
+	Title          *string   `json:"title"`
+	Summary        *string   `json:"summary"`
+	Takeaways      *[]string `json:"takeaways"`
+	Category       *string   `json:"category"`
+	Tags           *[]string `json:"tags"`
+	AcknowledgePII *bool     `json:"acknowledge_pii"`
 }
 
 func (s *Server) handlePatchNote(w http.ResponseWriter, r *http.Request) {
@@ -246,6 +250,20 @@ func (s *Server) handlePatchNote(w http.ResponseWriter, r *http.Request) {
 
 	// Enforce taxonomy, casing, tag bounds, and field length limits
 	notes.CleanAndTruncateNote(note)
+
+	// Rescan for PII
+	flags, currentHash := pii.ScanNote(note)
+	note.PIIFlags = flags
+	note.PIIScannedHash = currentHash
+	if req.AcknowledgePII != nil && *req.AcknowledgePII {
+		note.PIIAckHash = currentHash
+	}
+
+	// Non-private note with unacknowledged PII cannot be modified
+	if note.Visibility != "private" && len(flags) > 0 && note.PIIAckHash != currentHash {
+		writeError(w, ErrCodePIIUnacknowledged)
+		return
+	}
 
 	// Check if re-embedding is necessary
 	embedText := note.Title + "\n" + note.Summary + "\n" + strings.Join(note.Takeaways, "\n")

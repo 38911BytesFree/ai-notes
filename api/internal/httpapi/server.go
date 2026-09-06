@@ -107,6 +107,7 @@ func NewServer(deps ServerDeps) *Server {
 	mux.Handle("GET /v1/notes/search", s.requireUser(http.HandlerFunc(s.handleSearchNotes)))
 	mux.Handle("GET /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleGetNote)))
 	mux.Handle("PATCH /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handlePatchNote)))
+	mux.Handle("PUT /v1/notes/{id}/visibility", s.requireUser(http.HandlerFunc(s.handleSetVisibility)))
 	mux.Handle("DELETE /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleDeleteNote)))
 
 	// Transcript endpoints

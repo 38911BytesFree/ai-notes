@@ -14,6 +14,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ingest_limit_reached: "You have reached your monthly ingest limit (30 notes per month).",
   rate_limited: "Too many requests. Please wait a moment before trying again.",
   forbidden: "You do not have permission to do that.",
+  pii_unacknowledged:
+    "This note contains something that looks like personal or secret data. Review the highlighted items, then confirm to publish.",
   internal_error: "An unexpected error occurred. Please try again later.",
 };
 

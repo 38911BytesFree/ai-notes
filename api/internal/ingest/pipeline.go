@@ -15,6 +15,7 @@ import (
 
 	"ainotes/internal/ai"
 	"ainotes/internal/notes"
+	"ainotes/internal/pii"
 	"ainotes/internal/store"
 
 	"cloud.google.com/go/firestore"
@@ -220,6 +221,11 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 func (p *Pipeline) SaveNote(ctx context.Context, note *notes.Note, transcript *notes.Transcript, keepTranscript bool) (*notes.Note, error) {
 	// Clean and truncate note to enforce Section 6 limits
 	notes.CleanAndTruncateNote(note)
+
+	// Scan for PII and store initial flags and hash
+	flags, piiHash := pii.ScanNote(note)
+	note.PIIFlags = flags
+	note.PIIScannedHash = piiHash
 
 	// Embed title + "\n" + summary + "\n" + takeaways joined
 	embedText := note.Title + "\n" + note.Summary + "\n" + strings.Join(note.Takeaways, "\n")

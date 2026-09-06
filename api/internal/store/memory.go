@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ainotes/internal/notes"
+	"ainotes/internal/pii"
 )
 
 type MemoryStore struct {
@@ -235,6 +236,50 @@ func (m *MemoryStore) UpdateNote(ctx context.Context, uid string, updated *notes
 	existing.PIIAckHash = updated.PIIAckHash
 	existing.PublishedAt = updated.PublishedAt
 	existing.UpdatedAt = m.now()
+
+	cp := *existing
+	return &cp, nil
+}
+
+func (m *MemoryStore) SetNoteVisibility(ctx context.Context, uid, id, visibility, ackHash string) (*notes.Note, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.notes[id]
+	if !ok || existing.OwnerUID != uid {
+		return nil, ErrNotFound
+	}
+
+	if visibility != "private" && visibility != "unlisted" && visibility != "public" {
+		return nil, ErrInvalidArgument
+	}
+
+	// Authoritative rescan
+	flags, currentHash := pii.ScanNote(existing)
+
+	newAckHash := existing.PIIAckHash
+	if ackHash != "" && (ackHash == "true" || ackHash == currentHash) {
+		newAckHash = currentHash
+	}
+
+	if visibility != "private" && len(flags) > 0 {
+		if newAckHash != currentHash {
+			// Nothing is written in that case
+			return nil, ErrPIIUnacknowledged
+		}
+	}
+
+	now := m.now()
+	existing.PIIFlags = flags
+	existing.PIIScannedHash = currentHash
+	existing.PIIAckHash = newAckHash
+	existing.Visibility = visibility
+	if visibility == "public" {
+		existing.PublishedAt = &now
+	} else {
+		existing.PublishedAt = nil
+	}
+	existing.UpdatedAt = now
 
 	cp := *existing
 	return &cp, nil
