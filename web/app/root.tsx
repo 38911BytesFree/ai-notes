@@ -8,13 +8,30 @@ import {
   useLoaderData,
   useRouteError,
 } from "react-router";
-import type { LinksFunction, LoaderFunctionArgs } from "react-router";
+import type { LinksFunction, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { AuthProvider } from "~/components/AuthProvider";
 import { authenticationStorage } from "~/services/session.server";
 import stylesheet from "~/app.css?url";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+];
+
+export const meta: MetaFunction = () => [
+  { title: "AI Notes" },
+  { name: "description", content: "Save useful AI conversations into one private, searchable library." },
+  { name: "theme-color", content: "#111827" },
+  { property: "og:type", content: "website" },
+  { property: "og:site_name", content: "AI Notes" },
+  { property: "og:title", content: "AI Notes" },
+  { property: "og:description", content: "Save useful AI conversations into one private, searchable library." },
+  { property: "og:image", content: "/og-default.png" },
+  { name: "twitter:card", content: "summary_large_image" },
+  { name: "twitter:title", content: "AI Notes" },
+  { name: "twitter:description", content: "Save useful AI conversations into one private, searchable library." },
+  { name: "twitter:image", content: "/og-default.png" },
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -36,6 +53,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js');});}`,
+          }}
+        />
       </body>
     </html>
   );

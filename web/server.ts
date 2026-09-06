@@ -114,6 +114,12 @@ app.use(
 );
 
 
+// Service worker must never be cached
+app.get("/sw.js", (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-cache");
+  next();
+});
+
 if (process.env.NODE_ENV === "production") {
   app.use(
     "/assets",

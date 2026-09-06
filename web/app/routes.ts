@@ -8,6 +8,7 @@ export default [
   route("app/notes/:id", "routes/app.notes.$id.tsx"),
   route("app/settings", "routes/app.settings.tsx"),
   route("app/connect", "routes/app.connect.tsx"),
+  route("app/share", "routes/app.share.tsx"),
   route("terms", "routes/terms.tsx"),
   route("privacy", "routes/privacy.tsx"),
   route("n/:id", "routes/n.$id.tsx"),
