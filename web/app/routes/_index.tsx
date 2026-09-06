@@ -1,4 +1,14 @@
-import { Link } from "react-router";
+import { Link, redirect } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
+import { validateAuth } from "~/services/auth.server";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const auth = await validateAuth(request);
+  if (auth.isAuthenticated) {
+    return redirect("/app");
+  }
+  return null;
+}
 
 export default function Landing() {
   return (

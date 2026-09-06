@@ -1,11 +1,23 @@
 import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router";
+import { useSearchParams, useNavigate, redirect } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
+import { validateAuth } from "~/services/auth.server";
 
 export function sanitizeReturnTo(rawReturnTo: string | null | undefined): string {
   if (!rawReturnTo) return "/app";
   return rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
     ? rawReturnTo
     : "/app";
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const auth = await validateAuth(request);
+  if (auth.isAuthenticated) {
+    const url = new URL(request.url);
+    const returnTo = sanitizeReturnTo(url.searchParams.get("returnTo"));
+    return redirect(returnTo);
+  }
+  return null;
 }
 
 export default function Login() {

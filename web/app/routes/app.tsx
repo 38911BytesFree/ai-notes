@@ -158,6 +158,12 @@ export default function App() {
           <div className="flex items-center space-x-4">
             <span className="hidden sm:inline text-xs text-gray-500">{user.email}</span>
             <Link
+              to="/feed"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Public Feed
+            </Link>
+            <Link
               to="/app/connect"
               className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
             >
@@ -320,7 +326,18 @@ export default function App() {
                 ? "No notes found matching your search. Try different keywords."
                 : selectedCategory
                 ? `No notes in the "${selectedCategory}" category yet.`
-                : "Your library is empty. Add your first conversation above to get started!"}
+                : (
+                  <div>
+                    <p>Your library is empty. Add your first conversation above to get started!</p>
+                    <p className="mt-2 text-xs text-gray-400">
+                      Or explore published notes in the{" "}
+                      <Link to="/feed" className="text-gray-700 underline hover:text-gray-900">
+                        Public Feed
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-1">
