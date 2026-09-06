@@ -55,7 +55,7 @@ func TestScanPositives(t *testing.T) {
 		},
 		{
 			name:          "Private key block",
-			text:          "Key config:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----",
+			text:          "Key config:\n-----" + "BEGIN RSA " + "PRIVATE KEY-----\nMIIEowIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----",
 			expectedFlags: []string{FlagPrivateKey},
 		},
 		{

@@ -29,6 +29,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const note = res.data;
   const noindex = note.visibility === "unlisted" || !isPublicIndexingEnabled();
   const jsonLd = buildArticleJsonLd(note);
+  const metaTags = buildPublicNoteMeta(note, { noindex });
 
   const headers = new Headers();
   headers.set("Cache-Control", "public, max-age=300");
@@ -37,7 +38,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     headers.set("X-Robots-Tag", "noindex");
   }
 
-  return data({ note, jsonLd, noindex }, { headers });
+  return data({ note, jsonLd, noindex, metaTags }, { headers });
 }
 
 export function headers({ loaderHeaders }: { loaderHeaders: Headers }) {
@@ -52,14 +53,14 @@ export function headers({ loaderHeaders }: { loaderHeaders: Headers }) {
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  if (!data || !data.note) {
+  if (!data || !data.metaTags) {
     return [
       { title: "Note not found — AI Notes" },
       { name: "robots", content: "noindex, nofollow" },
     ];
   }
 
-  return buildPublicNoteMeta(data.note, { noindex: data.noindex });
+  return data.metaTags;
 };
 
 export default function PublicNoteRoute() {
