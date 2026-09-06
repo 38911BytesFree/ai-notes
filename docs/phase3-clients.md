@@ -20,7 +20,7 @@ This document records baseline verification against `main` (commit `8977939`), f
 
 ## 2. Firebase Authentication Prerequisites
 
-- **Email link sign-in provider**: Configured in Firebase Console authentication settings. Required for seamless email magic link sign-in when redirected from unauthenticated Web Share Target or bookmarklet entries.
+- **Email link sign-in provider**: Enabled in Firebase Console authentication providers (Passwordless sign-in). Authorized domains include `localhost`, `127.0.0.1`, `ai-notes-web-g3q7qn4imq-ew.a.run.app`, and production custom domain. Verified ready to support `/login/email` redirects from `/app/share` unauthenticated bounces.
 
 ---
 
