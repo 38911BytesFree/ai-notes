@@ -58,7 +58,7 @@ func (f *FakeSummariser) Summarise(ctx context.Context, transcript notes.Transcr
 		}
 	}
 
-	summaryText := "This note covers " + title + ".\n\nThe conversation analyzes key requirements, explores design trade-offs, and arrives at an actionable solution suitable for future reference."
+	summaryText := title + "\n\nDirect implementation and configuration steps for " + title + ".\n\nKey parameters and validated solution details for standalone reference."
 
 	return Summary{
 		Title:   title,

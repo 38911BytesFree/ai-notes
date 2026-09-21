@@ -55,7 +55,7 @@ func (v *VertexAI) Summarise(ctx context.Context, transcript notes.Transcript) (
 		convText.WriteString(fmt.Sprintf("%s: %s\n\n", strings.ToUpper(m.Role), m.Content))
 	}
 
-	prompt := fmt.Sprintf("Summarise the following conversation into the required structured JSON format:\n\n%s", convText.String())
+	prompt := fmt.Sprintf("Extract the final outcome and critical information from this conversation into a standalone, reusable note in the required structured JSON format:\n\n%s", convText.String())
 	contents := []*genai.Content{
 		genai.NewContentFromText(prompt, "user"),
 	}

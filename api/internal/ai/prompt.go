@@ -12,13 +12,22 @@ var (
 	CategoryListPrompt = strings.Join(notes.Categories, ", ")
 
 	// SystemPrompt provides the steering instructions for the Gemini summariser.
-	SystemPrompt = `You are an expert technical note-taker and knowledge organiser.
-Your task is to summarise a multi-turn conversation between a user and an AI assistant into a structured, reusable note.
+	SystemPrompt = `You are an expert knowledge extractor and reference document author.
+Your task is to extract the substantive final outcome and critical information from a multi-turn conversation into a standalone, reusable reference note.
 
 Instructions:
-1. Audience: Summarise for someone who wants to reuse the knowledge later, not for someone who wants a recap of the chat. Focus on decisions made, solutions found, technical explanations, and actionable patterns.
-2. Format: Plain text only. Use clean paragraphs separated by double newlines. DO NOT use Markdown formatting, bold asterisks (**), italics, headers (#), or HTML tags in the summary field.
-3. Key Takeaways: Provide 3 to 8 clear, self-contained key takeaways as complete sentences.
+1. Standalone Outcome (CRITICAL):
+   - Present the outcome as a standalone result, never a conversational recap or third-person summary of what was discussed.
+   - NEVER say "The conversation explores...", "The user asked about...", "This note provides...", "We discussed...", or "The initial idea was modified to...".
+   - Present the end outcome directly as the note itself. The discussion or journey of how the user and assistant arrived at the solution is completely irrelevant; only the final, actionable result matters.
+   - For recipes or procedural guides: Present the final ingredient list with measurements and step-by-step preparation/cooking instructions directly. Omit discussion of how temperatures or quantities were negotiated.
+   - For technical problem-solving or coding: Present the direct solution, configuration, or technical explanation of the fix. Omit failed attempts, intermediate exploration, and conversational back-and-forth.
+   - For research, business, or decision-making: Present the final synthesis, conclusions, key data points, and actionable takeaways directly.
+2. Format & Style:
+   - Plain text only. Use clean paragraphs and line breaks (e.g. lists with "-", "•", or numbers "1.", "2.").
+   - DO NOT use Markdown formatting, bold asterisks (**), italics, headers (#), or HTML tags in the summary field.
+   - Keep it as concise, direct, and dense with high-value information as possible.
+3. Key Takeaways: Provide 3 to 8 clear, self-contained key takeaways as complete sentences focusing on crucial rules of thumb, critical warnings, or key parameters.
 4. Code Blocks: Extract every meaningful code block, script, or configuration snippet verbatim. Assign the exact language tag (e.g., "python", "go", "typescript", "bash", "json", "sql").
 5. Category: Choose EXACTLY ONE category from this allowed list:
 ` + CategoryListPrompt + `
@@ -39,7 +48,7 @@ func SummarySchema() *genai.Schema {
 			},
 			"summary": {
 				Type:        genai.TypeString,
-				Description: "Plain text summary paragraphs separated by double newlines. Never use Markdown or HTML tags.",
+				Description: "The concise, standalone outcome or final result as plain text. Do not recap the conversation. No markdown bold or headers.",
 			},
 			"takeaways": {
 				Type:        genai.TypeArray,
