@@ -50,10 +50,12 @@ let currentLoaderData: {
   notes: PublicNote[];
   next_cursor?: string;
   selectedCategory?: string;
+  isAuthenticated?: boolean;
 } = {
   notes: mockNotes,
   next_cursor: "next-cursor-xyz",
   selectedCategory: undefined,
+  isAuthenticated: false,
 };
 
 vi.mock("react-router", async () => {
@@ -88,6 +90,7 @@ describe("Public Feed route feed.tsx", () => {
 
     const headers = new Headers(res.init?.headers);
     expect(headers.get("Cache-Control")).toBe("public, max-age=120");
+    expect(headers.get("Vary")).toBe("Cookie");
 
     expect(mockListPublicNotes).toHaveBeenCalledWith({
       category: "Programming",
@@ -124,11 +127,48 @@ describe("Public Feed route feed.tsx", () => {
     expect(screen.getByRole("link", { name: /Load more notes/i })).toBeInTheDocument();
   });
 
+  it("renders Sign in link when unauthenticated", () => {
+    currentLoaderData = {
+      notes: mockNotes,
+      next_cursor: undefined,
+      selectedCategory: undefined,
+      isAuthenticated: false,
+    };
+
+    render(
+      <MemoryRouter>
+        <FeedRoute />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "My Library" })).not.toBeInTheDocument();
+  });
+
+  it("renders My Library button and hides Sign in when authenticated", () => {
+    currentLoaderData = {
+      notes: mockNotes,
+      next_cursor: undefined,
+      selectedCategory: undefined,
+      isAuthenticated: true,
+    };
+
+    render(
+      <MemoryRouter>
+        <FeedRoute />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "My Library" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
   it("renders empty state when no notes are found", () => {
     currentLoaderData = {
       notes: [],
       next_cursor: undefined,
       selectedCategory: "Science",
+      isAuthenticated: false,
     };
 
     render(

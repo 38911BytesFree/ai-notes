@@ -4,6 +4,8 @@ import { listPublicNotes } from "~/services/public-api.server";
 import { CATEGORIES, CategoryChips } from "~/components/CategoryChips";
 import { NoteCard } from "~/components/NoteCard";
 import { RateLimiter } from "~/services/ratelimit.server";
+import { authenticationStorage } from "~/services/session.server";
+import { useAuth } from "~/components/AuthProvider";
 
 const feedLimiter = new RateLimiter({ capacity: 60, refillPerMinute: 60 });
 
@@ -26,14 +28,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const notes = res.ok ? res.data.notes : [];
   const next_cursor = res.ok ? res.data.next_cursor : undefined;
 
+  const session = await authenticationStorage.getSession(request.headers.get("Cookie"));
+  const isAuthenticated = Boolean(session.get("auth_token"));
+
   const headers = new Headers();
   headers.set("Cache-Control", "public, max-age=120");
+  headers.set("Vary", "Cookie");
 
   return data(
     {
       notes,
       next_cursor,
       selectedCategory: category,
+      isAuthenticated,
     },
     { headers }
   );
@@ -42,6 +49,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export function headers() {
   return {
     "Cache-Control": "public, max-age=120",
+    "Vary": "Cookie",
   };
 }
 
@@ -53,7 +61,10 @@ export const meta: MetaFunction = () => {
 };
 
 export default function FeedRoute() {
-  const { notes, next_cursor, selectedCategory } = useLoaderData<typeof loader>();
+  const { notes, next_cursor, selectedCategory, isAuthenticated: loaderAuthed } =
+    useLoaderData<typeof loader>();
+  const { isAuthenticated: authAuthed } = useAuth();
+  const isAuthed = authAuthed || Boolean(loaderAuthed);
   const navigate = useNavigate();
 
   const handleSelectCategory = (cat?: string) => {
@@ -81,18 +92,21 @@ export default function FeedRoute() {
             <span>AI Notes</span>
           </Link>
           <div className="flex items-center space-x-3 text-xs font-medium">
-            <Link
-              to="/app"
-              className="text-zinc-400 hover:text-white transition-colors"
-            >
-              My Library
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
-            >
-              Sign in
-            </Link>
+            {isAuthed ? (
+              <Link
+                to="/app"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
+              >
+                My Library
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         </div>
       </header>

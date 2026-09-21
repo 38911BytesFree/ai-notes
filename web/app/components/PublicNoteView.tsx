@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { PublicNote } from "~/services/public-api.server";
 import { CodeBlock } from "~/components/CodeBlock";
+import { useAuth } from "~/components/AuthProvider";
 
 export interface PublicNoteViewProps {
   note: PublicNote;
@@ -8,6 +9,7 @@ export interface PublicNoteViewProps {
 }
 
 export function PublicNoteView({ note, jsonLd }: PublicNoteViewProps) {
+  const { isAuthenticated } = useAuth();
   const dateStr = note.source.conversation_date
     ? new Date(note.source.conversation_date).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -53,12 +55,21 @@ export function PublicNoteView({ note, jsonLd }: PublicNoteViewProps) {
             <Link to="/feed" className="text-zinc-400 hover:text-white transition-colors">
               Explore feed
             </Link>
-            <Link
-              to="/login"
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
-            >
-              Sign in
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/app"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
+              >
+                My Library
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500 transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         </div>
       </header>

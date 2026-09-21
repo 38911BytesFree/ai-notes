@@ -4,9 +4,16 @@ import type { User } from "firebase/auth";
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  isAuthenticated: boolean;
 };
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const defaultAuthContext: AuthContextValue = {
+  user: null,
+  loading: false,
+  isAuthenticated: false,
+};
+
+const AuthContext = createContext<AuthContextValue>(defaultAuthContext);
 
 export function AuthProvider({
   children,
@@ -17,6 +24,11 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(initialAuthenticated);
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuthenticated);
+
+  useEffect(() => {
+    setIsAuthenticated(initialAuthenticated);
+  }, [initialAuthenticated]);
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -28,6 +40,7 @@ export function AuthProvider({
       unsub = onIdTokenChanged(auth, async (firebaseUser) => {
         if (!firebaseUser) {
           setUser(null);
+          setIsAuthenticated(false);
           setLoading(false);
           return;
         }
@@ -45,6 +58,7 @@ export function AuthProvider({
         }
 
         setUser(firebaseUser);
+        setIsAuthenticated(true);
         setLoading(false);
       });
     }
@@ -57,7 +71,13 @@ export function AuthProvider({
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAuthenticated: isAuthenticated || Boolean(user),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -65,8 +85,5 @@ export function AuthProvider({
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return context ?? defaultAuthContext;
 }
