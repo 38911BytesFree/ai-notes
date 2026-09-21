@@ -54,10 +54,15 @@ export default function App() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [inputVal, setInputVal] = useState("");
-  const [keepTranscript, setKeepTranscript] = useState(user.default_keep_transcript);
+  const [keepTranscript, setKeepTranscript] = useState(true);
   const [searchInput, setSearchInput] = useState(query);
   const [showCaptureModal, setShowCaptureModal] = useState(false);
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "title">("recent");
+
+  const openCaptureModal = () => {
+    setKeepTranscript(true);
+    setShowCaptureModal(true);
+  };
 
   const [allNotes, setAllNotes] = useState<NoteListItem[]>(notes);
   const [currentCursor, setCurrentCursor] = useState<string | undefined>(initialNextCursor);
@@ -74,6 +79,7 @@ export default function App() {
     if (ingestFetcher.data?.id) {
       setShowCaptureModal(false);
       setInputVal("");
+      setKeepTranscript(true);
       navigate(`/app/notes/${ingestFetcher.data.id}`);
     }
   }, [ingestFetcher.data, navigate]);
@@ -94,7 +100,7 @@ export default function App() {
 
       if (e.key === "n" || e.key === "N") {
         e.preventDefault();
-        setShowCaptureModal(true);
+        openCaptureModal();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -215,7 +221,7 @@ export default function App() {
         totalNotes={allNotes.length}
         selectedCategory={selectedCategory}
         onSelectCategory={handleCategorySelect}
-        onNewNote={() => setShowCaptureModal(true)}
+        onNewNote={openCaptureModal}
         onSignOut={handleSignOut}
       />
 
@@ -353,7 +359,7 @@ export default function App() {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCaptureModal(true)}
+                  onClick={openCaptureModal}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors cursor-pointer"
                 >
                   + Add conversation
@@ -538,7 +544,7 @@ export default function App() {
       <div className="md:hidden fixed bottom-0 inset-x-0 bg-[#121216]/95 backdrop-blur-md border-t border-[#222228] p-3 flex items-center justify-between z-30">
         <button
           type="button"
-          onClick={() => setShowCaptureModal(true)}
+          onClick={openCaptureModal}
           className="flex-1 flex items-center justify-between bg-[#1a1a24] border border-[#2b2b3a] rounded-xl px-3 py-2 text-xs text-zinc-400"
         >
           <span>Write or paste link...</span>

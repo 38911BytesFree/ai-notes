@@ -55,6 +55,11 @@ func (s *FirestoreStore) UpsertUser(ctx context.Context, u User) error {
 		if err := doc.DataTo(&existing); err != nil {
 			return err
 		}
+		if data := doc.Data(); data != nil {
+			if val, exists := data["default_keep_transcript"]; !exists || val == nil {
+				existing.DefaultKeepTranscript = true
+			}
+		}
 
 		if u.Email == "" {
 			u.Email = existing.Email
@@ -93,6 +98,11 @@ func (s *FirestoreStore) GetUser(ctx context.Context, uid string) (User, error) 
 	var u User
 	if err := doc.DataTo(&u); err != nil {
 		return User{}, err
+	}
+	if data := doc.Data(); data != nil {
+		if val, exists := data["default_keep_transcript"]; !exists || val == nil {
+			u.DefaultKeepTranscript = true
+		}
 	}
 	return u, nil
 }

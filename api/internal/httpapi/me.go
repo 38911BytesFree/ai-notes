@@ -34,9 +34,10 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	displayName, _ := tok.Claims["name"].(string)
 
 	u := store.User{
-		UID:         tok.UID,
-		Email:       email,
-		DisplayName: displayName,
+		UID:                   tok.UID,
+		Email:                 email,
+		DisplayName:           displayName,
+		DefaultKeepTranscript: true,
 	}
 
 	if err := s.store.UpsertUser(r.Context(), u); err != nil {
