@@ -104,6 +104,7 @@ func setupPhase2Context(t *testing.T) *phase2TestContext {
 		Verifier:         userVerifier,
 		ServiceValidator: serviceValidator,
 		Pipeline:         pipe,
+		Summariser:       fakeSummariser,
 		Embedder:         fakeEmbedder,
 		Logger:           logger,
 	})

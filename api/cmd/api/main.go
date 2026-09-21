@@ -185,6 +185,7 @@ func main() {
 		BlobStore:  blobStore,
 		Verifier:   verifier,
 		Pipeline:   pipeline,
+		Summariser: summariser,
 		Embedder:   embedder,
 		AuthClient: authClient,
 		Logger:     logger,

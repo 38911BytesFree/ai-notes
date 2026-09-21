@@ -65,6 +65,21 @@ vi.mock("~/services/notes-api.server", async () => {
         },
       };
     }),
+    refineNote: vi.fn(async (_req, _id, instruction) => {
+      if (!instruction) {
+        return { ok: false, code: "invalid_argument" };
+      }
+      return {
+        ok: true,
+        data: {
+          title: "Refined Title",
+          summary: "Refined Summary",
+          takeaways: ["Takeaway 1"],
+          category: "Cooking",
+          tags: ["refined"],
+        },
+      };
+    }),
   };
 });
 
@@ -213,6 +228,57 @@ describe("NoteDetailView", () => {
     const body = await resp.json();
     expect(body.ok).toBe(true);
     expect(body.note.visibility).toBe("public");
+  });
+
+  it("executes refine action successfully returning refined summary", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "refine");
+    params.append("instruction", "focus only on the second recipe");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.refined.title).toBe("Refined Title");
+    expect(body.refined.summary).toBe("Refined Summary");
+    expect(body.refined.category).toBe("Cooking");
+  });
+
+  it("rejects refine action when instruction is empty", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "refine");
+    params.append("instruction", "   ");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.code).toBe("invalid_argument");
   });
 });
 

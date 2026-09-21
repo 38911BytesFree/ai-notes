@@ -60,6 +60,49 @@ func (v *VertexAI) Summarise(ctx context.Context, transcript notes.Transcript) (
 		genai.NewContentFromText(prompt, "user"),
 	}
 
+	return v.generateSummary(ctx, contents)
+}
+
+func (v *VertexAI) Refine(ctx context.Context, note *notes.Note, instruction string, transcript *notes.Transcript) (Summary, error) {
+	var sb strings.Builder
+	sb.WriteString("Refine and update this reference note according to the following instruction:\n\n")
+	sb.WriteString(fmt.Sprintf("USER INSTRUCTION:\n%s\n\n", strings.TrimSpace(instruction)))
+	sb.WriteString("CURRENT NOTE:\n")
+	sb.WriteString(fmt.Sprintf("Title: %s\n", note.Title))
+	sb.WriteString(fmt.Sprintf("Category: %s\n", note.Category))
+	if len(note.Tags) > 0 {
+		sb.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(note.Tags, ", ")))
+	}
+	sb.WriteString(fmt.Sprintf("Summary:\n%s\n\n", note.Summary))
+	if len(note.Takeaways) > 0 {
+		sb.WriteString("Takeaways:\n")
+		for _, t := range note.Takeaways {
+			sb.WriteString(fmt.Sprintf("- %s\n", t))
+		}
+		sb.WriteString("\n")
+	}
+	if len(note.CodeBlocks) > 0 {
+		sb.WriteString("Code Blocks:\n")
+		for _, cb := range note.CodeBlocks {
+			sb.WriteString(fmt.Sprintf("```%s\n%s\n```\n\n", cb.Lang, cb.Code))
+		}
+	}
+
+	if transcript != nil && len(transcript.Messages) > 0 {
+		sb.WriteString("ORIGINAL CONVERSATION TRANSCRIPT (for context if needed):\n")
+		for _, m := range transcript.Messages {
+			sb.WriteString(fmt.Sprintf("%s: %s\n\n", strings.ToUpper(m.Role), m.Content))
+		}
+	}
+
+	contents := []*genai.Content{
+		genai.NewContentFromText(sb.String(), "user"),
+	}
+
+	return v.generateSummary(ctx, contents)
+}
+
+func (v *VertexAI) generateSummary(ctx context.Context, contents []*genai.Content) (Summary, error) {
 	temp := float32(0.2)
 	cfg := &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(SystemPrompt, "system"),

@@ -121,6 +121,7 @@ func setupTestContext(t *testing.T) *testContext {
 		BlobStore:  blobStore,
 		Verifier:   verifier,
 		Pipeline:   pipe,
+		Summariser: fakeSummariser,
 		Embedder:   fakeEmbedder,
 		AuthClient: authClient,
 		Logger:     logger,
@@ -847,5 +848,85 @@ func TestTranscript_GetAndDelete(t *testing.T) {
 
 	if getRec2.Code != http.StatusNotFound {
 		t.Fatalf("expected 404 on transcript after delete, got %d", getRec2.Code)
+	}
+}
+
+func TestNotes_RefineNote(t *testing.T) {
+	tc := setupTestContext(t)
+	ctx := context.Background()
+
+	noteID := "refine-test-note"
+	_ = tc.memStore.CreateNote(ctx, &notes.Note{
+		ID:            noteID,
+		OwnerUID:      tc.uid,
+		Title:         "Chocolate and Vanilla Cake Recipes",
+		Summary:       "Contains two separate cake recipes: one chocolate and one vanilla.",
+		Takeaways:     []string{"Chocolate requires cocoa", "Vanilla requires vanilla extract"},
+		Category:      "Other",
+		Tags:          []string{"recipe", "cake"},
+		HasTranscript: true,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	})
+
+	// Put a transcript into blobStore
+	blobKey := "transcripts/" + noteID + ".json.gz"
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tr := notes.Transcript{
+		Provider: "chatgpt",
+		Messages: []notes.TranscriptMessage{
+			{Role: "user", Content: "Give me two cake recipes: chocolate and vanilla"},
+			{Role: "assistant", Content: "Recipe 1: Chocolate Cake... Recipe 2: Vanilla Cake..."},
+		},
+	}
+	_ = json.NewEncoder(gw).Encode(tr)
+	_ = gw.Close()
+	_ = tc.blobStore.Put(ctx, blobKey, buf.Bytes())
+
+	// 1. Unauthenticated -> 401
+	unauthReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/refine", strings.NewReader(`{"instruction":"only vanilla"}`))
+	unauthRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(unauthRec, unauthReq)
+	if unauthRec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 unauthenticated, got %d", unauthRec.Code)
+	}
+
+	// 2. Another user's note -> 404
+	otherUserReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/refine", strings.NewReader(`{"instruction":"only vanilla"}`))
+	otherUserReq.Header.Set("Authorization", "Bearer "+tc.otherToken)
+	otherUserRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(otherUserRec, otherUserReq)
+	if otherUserRec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for other user note, got %d", otherUserRec.Code)
+	}
+
+	// 3. Empty instruction -> 400
+	badReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/refine", strings.NewReader(`{"instruction":"   "}`))
+	badReq.Header.Set("Authorization", "Bearer "+tc.token)
+	badRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(badRec, badReq)
+	if badRec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 invalid_argument for empty instruction, got %d", badRec.Code)
+	}
+
+	// 4. Successful refine
+	refineReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/refine", strings.NewReader(`{"instruction":"rewrite to only focus on vanilla cake and change title"}`))
+	refineReq.Header.Set("Authorization", "Bearer "+tc.token)
+	refineRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(refineRec, refineReq)
+	if refineRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on refine, got %d; body: %s", refineRec.Code, refineRec.Body.String())
+	}
+
+	var refined ai.Summary
+	if err := json.NewDecoder(refineRec.Body).Decode(&refined); err != nil {
+		t.Fatalf("failed to decode refine response: %v", err)
+	}
+	if refined.Title == "" {
+		t.Errorf("expected non-empty title in refined summary")
+	}
+	if !strings.Contains(refined.Summary, "[Refined with instruction:") {
+		t.Errorf("expected summary to contain refine marker, got %q", refined.Summary)
 	}
 }

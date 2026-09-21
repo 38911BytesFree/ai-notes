@@ -231,6 +231,26 @@ export async function deleteTranscript(
   });
 }
 
+export interface RefinedNoteSummary {
+  title: string;
+  summary: string;
+  takeaways: string[];
+  category: string;
+  tags: string[];
+  code_blocks?: CodeBlock[];
+}
+
+export async function refineNote(
+  request: Request,
+  id: string,
+  instruction: string
+): Promise<ApiResult<RefinedNoteSummary>> {
+  return callApi<RefinedNoteSummary>(request, `/v1/notes/${encodeURIComponent(id)}/refine`, {
+    method: "POST",
+    body: JSON.stringify({ instruction }),
+  });
+}
+
 export async function getMe(request: Request): Promise<ApiResult<UserProfile>> {
   return callApi<UserProfile>(request, "/v1/me", {
     method: "GET",

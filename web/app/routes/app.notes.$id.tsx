@@ -113,6 +113,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return Response.json({ ok: true, note: res.data });
   }
 
+  if (intent === "refine") {
+    const instruction = String(formData.get("instruction") ?? "").trim();
+    if (!instruction) {
+      return Response.json({ code: "invalid_argument" }, { status: 400 });
+    }
+    const res = await notesApi.refineNote(request, id, instruction);
+    if (!res.ok) {
+      return Response.json({ code: res.code }, { status: 400 });
+    }
+    return Response.json({ ok: true, refined: res.data });
+  }
+
   return Response.json({ code: "invalid_argument" }, { status: 400 });
 }
 
@@ -136,6 +148,7 @@ export default function NoteDetailView() {
 
   const navigate = useNavigate();
   const fetcher = useFetcher<{ ok?: boolean; note?: Note; code?: string }>();
+  const refineFetcher = useFetcher<{ ok?: boolean; refined?: notesApi.RefinedNoteSummary; code?: string }>();
 
   const note = (fetcher.data?.note as Note | undefined) ?? initialNote;
 
@@ -151,18 +164,89 @@ export default function NoteDetailView() {
   const [editCategory, setEditCategory] = useState(note.category);
   const [editTags, setEditTags] = useState((note.tags ?? []).join(", "));
 
+  // AI Refine state
+  const [refineInstruction, setRefineInstruction] = useState("");
+  const [refineSuccess, setRefineSuccess] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
+
+  type UndoSnapshot = {
+    title: string;
+    summary: string;
+    takeaways: string;
+    category: string;
+    tags: string;
+  };
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
+
+  const isRefining = refineFetcher.state !== "idle";
+
   const startEditing = () => {
     setEditTitle(note.title);
     setEditSummary(note.summary);
     setEditTakeaways((note.takeaways ?? []).join("\n"));
     setEditCategory(note.category);
     setEditTags((note.tags ?? []).join(", "));
+    setRefineInstruction("");
+    setRefineSuccess(false);
+    setRefineError(null);
+    setUndoSnapshot(null);
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setIsEditing(false);
+    setUndoSnapshot(null);
+    setRefineSuccess(false);
+    setRefineError(null);
   };
+
+  const handleRefineSubmit = () => {
+    if (!refineInstruction.trim() || isRefining) return;
+    setUndoSnapshot({
+      title: editTitle,
+      summary: editSummary,
+      takeaways: editTakeaways,
+      category: editCategory,
+      tags: editTags,
+    });
+    setRefineSuccess(false);
+    setRefineError(null);
+    refineFetcher.submit(
+      { intent: "refine", instruction: refineInstruction.trim() },
+      { method: "post" }
+    );
+  };
+
+  const handleUndoRefine = () => {
+    if (!undoSnapshot) return;
+    setEditTitle(undoSnapshot.title);
+    setEditSummary(undoSnapshot.summary);
+    setEditTakeaways(undoSnapshot.takeaways);
+    setEditCategory(undoSnapshot.category);
+    setEditTags(undoSnapshot.tags);
+    setUndoSnapshot(null);
+    setRefineSuccess(false);
+  };
+
+  useEffect(() => {
+    if (refineFetcher.data?.ok && refineFetcher.data.refined && refineFetcher.state === "idle") {
+      const refined = refineFetcher.data.refined;
+      if (refined.title) setEditTitle(refined.title);
+      if (refined.summary) setEditSummary(refined.summary);
+      if (refined.takeaways) setEditTakeaways(refined.takeaways.join("\n"));
+      if (refined.category) setEditCategory(refined.category);
+      if (refined.tags) setEditTags(refined.tags.join(", "));
+      setRefineSuccess(true);
+      setRefineError(null);
+    } else if (refineFetcher.data && !refineFetcher.data.ok && refineFetcher.data.code && refineFetcher.state === "idle") {
+      setRefineError(
+        refineFetcher.data.code === "invalid_argument"
+          ? "Please provide an instruction for what to change."
+          : "AI refinement failed. Please try again."
+      );
+      setRefineSuccess(false);
+    }
+  }, [refineFetcher.data, refineFetcher.state]);
 
   const isPatching = fetcher.state !== "idle";
 
@@ -300,6 +384,80 @@ export default function NoteDetailView() {
             <fetcher.Form method="post" className="rounded-2xl border border-[#2b2b38] bg-[#14141a] p-6 space-y-5">
               <input type="hidden" name="intent" value="patch" />
               <h2 className="text-base font-semibold text-white">Edit Note</h2>
+
+              {/* AI Refinement Box */}
+              <div className="rounded-xl border border-indigo-500/30 bg-[#161526] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-indigo-400 text-sm">✦</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
+                      Refine with AI
+                    </span>
+                  </div>
+                  {undoSnapshot && (
+                    <button
+                      type="button"
+                      onClick={handleUndoRefine}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium cursor-pointer"
+                    >
+                      Undo AI changes
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs text-zinc-400">
+                  Describe what you would like to change in plain English (e.g. &ldquo;the summary includes two recipes - rewrite so it only focuses on the second one&rdquo; or &ldquo;make takeaways more concise&rdquo;).
+                </p>
+
+                <div className="space-y-2">
+                  <textarea
+                    id="refine-instruction"
+                    rows={2}
+                    value={refineInstruction}
+                    onChange={(e) => setRefineInstruction(e.target.value)}
+                    placeholder="What would you like to change?"
+                    disabled={isRefining}
+                    className="w-full rounded-xl border border-[#2a2a38] bg-[#1a1a24] p-3 text-sm text-white placeholder-zinc-500 focus:outline-hidden focus:border-indigo-500 font-sans disabled:opacity-50"
+                  />
+
+                  {refineSuccess && (
+                    <div className="flex items-center space-x-2 text-xs text-emerald-400 font-medium">
+                      <span>✓</span>
+                      <span>AI changes applied to fields below. Review and click &ldquo;Save Changes&rdquo; to save.</span>
+                    </div>
+                  )}
+
+                  {refineError && (
+                    <div className="text-xs text-rose-400 font-medium">
+                      {refineError}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleRefineSubmit}
+                      disabled={isRefining || !refineInstruction.trim()}
+                      className="inline-flex items-center space-x-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isRefining ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          <span>Refining...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>✦</span>
+                          <span>Refine Note</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               <div>
                 <label htmlFor="edit-title" className="block text-xs font-medium text-zinc-400 mb-1">

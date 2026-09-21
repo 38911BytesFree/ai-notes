@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -194,12 +197,13 @@ func (s *Server) handleGetNote(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateNoteRequest struct {
-	Title          *string   `json:"title"`
-	Summary        *string   `json:"summary"`
-	Takeaways      *[]string `json:"takeaways"`
-	Category       *string   `json:"category"`
-	Tags           *[]string `json:"tags"`
-	AcknowledgePII *bool     `json:"acknowledge_pii"`
+	Title          *string            `json:"title"`
+	Summary        *string            `json:"summary"`
+	Takeaways      *[]string          `json:"takeaways"`
+	CodeBlocks     *[]notes.CodeBlock `json:"code_blocks"`
+	Category       *string            `json:"category"`
+	Tags           *[]string          `json:"tags"`
+	AcknowledgePII *bool              `json:"acknowledge_pii"`
 }
 
 func (s *Server) handlePatchNote(w http.ResponseWriter, r *http.Request) {
@@ -240,6 +244,9 @@ func (s *Server) handlePatchNote(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Takeaways != nil {
 		note.Takeaways = *req.Takeaways
+	}
+	if req.CodeBlocks != nil {
+		note.CodeBlocks = *req.CodeBlocks
 	}
 	if req.Category != nil {
 		note.Category = notes.Normalise(*req.Category)
@@ -297,6 +304,83 @@ func (s *Server) handlePatchNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(updated)
+}
+
+type RefineNoteRequest struct {
+	Instruction string `json:"instruction"`
+}
+
+func (s *Server) handleRefineNote(w http.ResponseWriter, r *http.Request) {
+	tok, ok := UserFromContext(r.Context())
+	if !ok || tok == nil {
+		writeError(w, ErrCodeUnauthenticated)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, ErrCodeNotFound)
+		return
+	}
+
+	note, err := s.store.GetNote(r.Context(), tok.UID, id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, ErrCodeNotFound)
+			return
+		}
+		s.logger.Error("failed to get note for refine", slog.String("id", id), slog.String("error", err.Error()))
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	var req RefineNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	req.Instruction = strings.TrimSpace(req.Instruction)
+	if req.Instruction == "" {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	if s.summariser == nil {
+		s.logger.Error("summariser not configured on server")
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	var transcript *notes.Transcript
+	if note.HasTranscript && s.blobStore != nil {
+		blobKey := fmt.Sprintf("transcripts/%s.json.gz", id)
+		gzData, err := s.blobStore.Get(r.Context(), blobKey)
+		if err == nil {
+			gr, err := gzip.NewReader(bytes.NewReader(gzData))
+			if err == nil {
+				defer gr.Close()
+				decompressed, err := io.ReadAll(gr)
+				if err == nil {
+					var t notes.Transcript
+					if err := json.Unmarshal(decompressed, &t); err == nil {
+						transcript = &t
+					}
+				}
+			}
+		}
+	}
+
+	summary, err := s.summariser.Refine(r.Context(), note, req.Instruction, transcript)
+	if err != nil {
+		s.logger.Error("failed to refine note", slog.String("id", id), slog.String("error", err.Error()))
+		writeError(w, ErrCodeSummariseFailed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(summary)
 }
 
 func (s *Server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {

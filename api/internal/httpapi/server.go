@@ -20,6 +20,7 @@ type ServerDeps struct {
 	Verifier         TokenVerifier
 	ServiceValidator ServiceTokenValidator
 	Pipeline         *ingest.Pipeline
+	Summariser       ai.Summariser
 	Embedder         ai.Embedder
 	AuthClient       AuthUserDeleter
 	Logger           *slog.Logger
@@ -32,6 +33,7 @@ type Server struct {
 	verifier         TokenVerifier
 	serviceValidator ServiceTokenValidator
 	pipeline         *ingest.Pipeline
+	summariser       ai.Summariser
 	embedder         ai.Embedder
 	authClient       AuthUserDeleter
 	logger           *slog.Logger
@@ -84,6 +86,7 @@ func NewServer(deps ServerDeps) *Server {
 		verifier:         deps.Verifier,
 		serviceValidator: serviceVal,
 		pipeline:         deps.Pipeline,
+		summariser:       deps.Summariser,
 		embedder:         deps.Embedder,
 		authClient:       deps.AuthClient,
 		logger:           logger,
@@ -112,6 +115,7 @@ func NewServer(deps ServerDeps) *Server {
 	mux.Handle("GET /v1/notes/search", s.requireUser(http.HandlerFunc(s.handleSearchNotes)))
 	mux.Handle("GET /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleGetNote)))
 	mux.Handle("PATCH /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handlePatchNote)))
+	mux.Handle("POST /v1/notes/{id}/refine", s.requireUser(http.HandlerFunc(s.handleRefineNote)))
 	mux.Handle("PUT /v1/notes/{id}/visibility", s.requireUser(http.HandlerFunc(s.handleSetVisibility)))
 	mux.Handle("DELETE /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleDeleteNote)))
 

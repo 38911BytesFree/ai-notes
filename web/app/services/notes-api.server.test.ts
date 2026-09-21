@@ -9,7 +9,7 @@ vi.mock("~/services/backend.server", () => ({
   backendFetch: vi.fn(),
 }));
 
-import { ingest, patchNote, getNote } from "./notes-api.server";
+import { ingest, patchNote, getNote, refineNote } from "./notes-api.server";
 import { backendFetch } from "~/services/backend.server";
 
 describe("notes-api.server non-circular response serialization", () => {
@@ -106,5 +106,37 @@ describe("notes-api.server non-circular response serialization", () => {
 
     expect(result.data).not.toHaveProperty("data");
     expect(() => JSON.stringify(result.data)).not.toThrow();
+  });
+
+  it("calls refineNote and returns structured refined summary", async () => {
+    const rawRefined = {
+      title: "Only Vanilla Cake Recipe",
+      summary: "Instructions for vanilla cake only.",
+      takeaways: ["Vanilla essence is key"],
+      category: "Cooking",
+      tags: ["recipe", "cake"],
+    };
+
+    vi.mocked(backendFetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(rawRefined), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const req = new Request("http://localhost/app/notes/note-456");
+    const result = await refineNote(req, "note-456", "only focus on vanilla");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.data.title).toBe("Only Vanilla Cake Recipe");
+    expect(result.data.summary).toBe("Instructions for vanilla cake only.");
+    expect(result.data.category).toBe("Cooking");
+    expect(result.data.takeaways).toEqual(["Vanilla essence is key"]);
+
+    expect(() => {
+      Response.json({ ok: true, refined: result.data });
+    }).not.toThrow();
   });
 });

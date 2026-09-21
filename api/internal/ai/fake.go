@@ -74,6 +74,43 @@ func (f *FakeSummariser) Summarise(ctx context.Context, transcript notes.Transcr
 	}, nil
 }
 
+func (f *FakeSummariser) Refine(ctx context.Context, note *notes.Note, instruction string, transcript *notes.Transcript) (Summary, error) {
+	title := note.Title
+	if strings.Contains(strings.ToLower(instruction), "title") {
+		title = "Refined: " + note.Title
+	}
+
+	summary := note.Summary + "\n\n[Refined with instruction: " + instruction + "]"
+
+	takeaways := note.Takeaways
+	if len(takeaways) == 0 {
+		takeaways = []string{
+			"Identify the core problem and verify all inputs before processing.",
+			"Structure the solution into maintainable, modular components with clear ownership boundaries.",
+			"Enforce robust error handling and validate schemas to guarantee reliable operation.",
+		}
+	}
+
+	category := note.Category
+	if category == "" {
+		category = "Programming"
+	}
+
+	tags := note.Tags
+	if len(tags) == 0 {
+		tags = []string{"refined", "note"}
+	}
+
+	return Summary{
+		Title:      title,
+		Summary:    summary,
+		Takeaways:  takeaways,
+		CodeBlocks: note.CodeBlocks,
+		Category:   category,
+		Tags:       tags,
+	}, nil
+}
+
 type FakeEmbedder struct{}
 
 func NewFakeEmbedder() *FakeEmbedder {

@@ -293,6 +293,7 @@ func TestRouteAuthMatrix(t *testing.T) {
 		{method: "GET", path: "/v1/notes/search", authClass: "user"},
 		{method: "GET", path: "/v1/notes/some-id", authClass: "user"},
 		{method: "PATCH", path: "/v1/notes/some-id", authClass: "user"},
+		{method: "POST", path: "/v1/notes/some-id/refine", authClass: "user"},
 		{method: "PUT", path: "/v1/notes/some-id/visibility", authClass: "user"},
 		{method: "DELETE", path: "/v1/notes/some-id", authClass: "user"},
 		{method: "GET", path: "/v1/notes/some-id/transcript", authClass: "user"},
