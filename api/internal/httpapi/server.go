@@ -116,6 +116,7 @@ func NewServer(deps ServerDeps) *Server {
 	mux.Handle("GET /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleGetNote)))
 	mux.Handle("PATCH /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handlePatchNote)))
 	mux.Handle("POST /v1/notes/{id}/refine", s.requireUser(http.HandlerFunc(s.handleRefineNote)))
+	mux.Handle("POST /v1/notes/{id}/integrate", s.requireUser(http.HandlerFunc(s.handleIntegrateNote)))
 	mux.Handle("PUT /v1/notes/{id}/visibility", s.requireUser(http.HandlerFunc(s.handleSetVisibility)))
 	mux.Handle("DELETE /v1/notes/{id}", s.requireUser(http.HandlerFunc(s.handleDeleteNote)))
 

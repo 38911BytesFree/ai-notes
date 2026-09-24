@@ -9,6 +9,8 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { VisibilityControl } from "~/components/VisibilityControl";
 import { SidebarRail } from "~/components/SidebarRail";
 import { AssistantRail } from "~/components/AssistantRail";
+import { isAllowedShareUrl, detectProvider } from "~/services/share-url";
+import { getErrorMessage } from "~/services/error-messages";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { user } = await requireAuth(request);
@@ -125,6 +127,58 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return Response.json({ ok: true, refined: res.data });
   }
 
+  if (intent === "integrate") {
+    const input = String(formData.get("input") ?? formData.get("share_url") ?? formData.get("text") ?? "").trim();
+    if (!input) {
+      return Response.json({ code: "invalid_argument" }, { status: 400 });
+    }
+
+    const isUrl = /^https?:\/\//i.test(input);
+    if (isUrl && !isAllowedShareUrl(input)) {
+      return Response.json({ code: "unsupported_provider" }, { status: 400 });
+    }
+
+    let keepTranscript: boolean | undefined = undefined;
+    const keepVal = formData.get("keep_transcript");
+    if (keepVal !== null) {
+      keepTranscript = keepVal === "on" || keepVal === "true" || keepVal === "1";
+    }
+
+    const keep = keepTranscript !== undefined ? { keep_transcript: keepTranscript } : {};
+    const payload = isUrl
+      ? { share_url: input, ...keep }
+      : { text: input, provider: "manual", ...keep };
+
+    const res = await notesApi.integrateNote(request, id, payload);
+    if (!res.ok) {
+      let status = 500;
+      switch (res.code) {
+        case "unauthenticated":
+          status = 401;
+          break;
+        case "not_found":
+          status = 404;
+          break;
+        case "unsupported_provider":
+        case "invalid_argument":
+        case "transcript_empty":
+        case "transcript_too_long":
+          status = 400;
+          break;
+        case "ingest_limit_reached":
+          status = 429;
+          break;
+        case "fetch_failed":
+        case "fetch_blocked":
+        case "summarise_failed":
+          status = 502;
+          break;
+      }
+      return Response.json({ code: res.code }, { status });
+    }
+    return Response.json({ ok: true, note: res.data });
+  }
+
   return Response.json({ code: "invalid_argument" }, { status: 400 });
 }
 
@@ -149,11 +203,18 @@ export default function NoteDetailView() {
   const navigate = useNavigate();
   const fetcher = useFetcher<{ ok?: boolean; note?: Note; code?: string }>();
   const refineFetcher = useFetcher<{ ok?: boolean; refined?: notesApi.RefinedNoteSummary; code?: string }>();
+  const integrateFetcher = useFetcher<{ ok?: boolean; note?: Note; code?: string }>();
 
-  const note = (fetcher.data?.note as Note | undefined) ?? initialNote;
+  const note =
+    (integrateFetcher.data?.note as Note | undefined) ??
+    (fetcher.data?.note as Note | undefined) ??
+    initialNote;
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateInput, setUpdateInput] = useState("");
+  const [updateKeepTranscript, setUpdateKeepTranscript] = useState(initialNote.has_transcript);
   const [isStarred, setIsStarred] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -256,6 +317,23 @@ export default function NoteDetailView() {
     }
   }, [isEditing, fetcher.data?.ok, fetcher.state]);
 
+  const isIntegrating = integrateFetcher.state !== "idle";
+  const isUpdateUrl = /^https?:\/\//i.test(updateInput.trim());
+  const detectedUpdateProvider = isUpdateUrl ? detectProvider(updateInput) : null;
+
+  useEffect(() => {
+    if (integrateFetcher.data?.ok && integrateFetcher.data.note && integrateFetcher.state === "idle") {
+      const updated = integrateFetcher.data.note;
+      setEditTitle(updated.title);
+      setEditSummary(updated.summary);
+      setEditTakeaways((updated.takeaways ?? []).join("\n"));
+      setEditCategory(updated.category);
+      setEditTags((updated.tags ?? []).join(", "));
+      setShowUpdateModal(false);
+      setUpdateInput("");
+    }
+  }, [integrateFetcher.data, integrateFetcher.state]);
+
   const createdDate = note.created_at ? new Date(note.created_at) : new Date();
   const timeStr = createdDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const dateStr = note.source.conversation_date
@@ -327,6 +405,18 @@ export default function NoteDetailView() {
                 <>
                   <button
                     type="button"
+                    onClick={() => {
+                      setUpdateInput("");
+                      setUpdateKeepTranscript(note.has_transcript);
+                      setShowUpdateModal(true);
+                    }}
+                    className="text-zinc-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+                    title="Update note"
+                  >
+                    Update note
+                  </button>
+                  <button
+                    type="button"
                     onClick={startEditing}
                     className="text-zinc-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
                     title="Edit note"
@@ -378,6 +468,114 @@ export default function NoteDetailView() {
               </div>
             </div>
           )}
+
+          {/* Update Note Modal */}
+          {showUpdateModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+              <div className="w-full max-w-lg rounded-2xl border border-[#2b2b38] bg-[#14141a] p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-white flex items-center space-x-2">
+                    <span className="text-indigo-400">✦</span>
+                    <span>Update Note</span>
+                  </h2>
+                  <button
+                    type="button"
+                    disabled={isIntegrating}
+                    onClick={() => setShowUpdateModal(false)}
+                    className="text-zinc-500 hover:text-zinc-300 p-1 rounded-md cursor-pointer disabled:opacity-50"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Paste another conversation share link (ChatGPT, Claude, Gemini, Grok) or raw transcript text. The information will be synthesized and integrated into this note.
+                </p>
+
+                <integrateFetcher.Form method="post" className="space-y-4">
+                  <input type="hidden" name="intent" value="integrate" />
+                  <div className="relative">
+                    <textarea
+                      name="input"
+                      rows={5}
+                      required
+                      disabled={isIntegrating}
+                      value={updateInput}
+                      onChange={(e) => setUpdateInput(e.target.value)}
+                      placeholder="https://chatgpt.com/share/... or paste conversation text here"
+                      className="w-full rounded-xl border border-[#292936] bg-[#1a1a24] p-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden font-sans resize-none disabled:opacity-50"
+                    />
+                    {detectedUpdateProvider && (
+                      <div className="absolute right-3 bottom-3">
+                        <span className="inline-flex items-center rounded-md bg-indigo-950/60 px-2 py-1 text-xs font-medium text-indigo-300 border border-indigo-800/40">
+                          {detectedUpdateProvider === "chatgpt"
+                            ? "ChatGPT detected"
+                            : detectedUpdateProvider === "claude"
+                            ? "Claude detected"
+                            : detectedUpdateProvider === "gemini"
+                            ? "Gemini detected"
+                            : "Grok detected"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="hidden"
+                      name="keep_transcript"
+                      value={updateKeepTranscript ? "true" : "false"}
+                    />
+                    <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        disabled={isIntegrating}
+                        checked={updateKeepTranscript}
+                        onChange={(e) => setUpdateKeepTranscript(e.target.checked)}
+                        className="rounded border-[#2f2f3e] bg-[#1c1c26] text-indigo-600 focus:ring-0 h-4 w-4"
+                      />
+                      <span>Keep transcript</span>
+                    </label>
+                  </div>
+
+                  {integrateFetcher.data && !integrateFetcher.data.ok && integrateFetcher.data.code && (
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-950/20 p-3 text-xs text-rose-400">
+                      {getErrorMessage(integrateFetcher.data.code)}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={isIntegrating}
+                      onClick={() => setShowUpdateModal(false)}
+                      className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white cursor-pointer disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isIntegrating || !updateInput.trim()}
+                      className="inline-flex items-center space-x-1.5 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isIntegrating ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          <span>Integrating...</span>
+                        </>
+                      ) : (
+                        <span>Update Note</span>
+                      )}
+                    </button>
+                  </div>
+                </integrateFetcher.Form>
+              </div>
+            </div>
+          )}
+
 
           {isEditing ? (
             /* Edit Form */

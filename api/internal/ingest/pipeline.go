@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
@@ -87,12 +88,7 @@ func (p *Pipeline) now() time.Time {
 	return time.Now().UTC()
 }
 
-// Ingest executes the 7-step pipeline specified in Section 7.
-func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, error) {
-	now := p.now()
-	period := now.Format("2006-01")
-
-	// 1. Provider resolution
+func (p *Pipeline) fetchTranscript(ctx context.Context, req IngestRequest) (notes.Transcript, string, string, error) {
 	var fetcher Fetcher
 	providerName := req.Provider
 	var shareURL string
@@ -105,40 +101,26 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 		}
 		f, err := resolver(shareURL)
 		if err != nil {
-			return nil, ErrUnsupportedProvider
+			return notes.Transcript{}, "", "", ErrUnsupportedProvider
 		}
 		fetcher = f
 	} else if strings.TrimSpace(req.Text) != "" && req.Provider == "manual" {
 		providerName = "manual"
 	} else {
-		return nil, ErrUnsupportedProvider
+		return notes.Transcript{}, "", "", ErrUnsupportedProvider
 	}
 
-	// 2. Reserve quota before fetch
-	if err := p.store.ReserveIngest(ctx, req.UID, period, p.cfg.MonthlyLimit); err != nil {
-		return nil, err
-	}
-
-	// Helper to rollback quota on fetch-related errors
-	rollbackQuota := func() {
-		if err := p.store.ReleaseIngest(ctx, req.UID); err != nil {
-			p.logger.Error("failed to rollback ingest quota", slog.String("uid", req.UID), slog.String("error", err.Error()))
-		}
-	}
-
-	// 3. Fetch -> Transcript
 	var transcript notes.Transcript
 	if fetcher != nil {
 		t, err := fetcher.Fetch(ctx, shareURL)
 		if err != nil {
-			rollbackQuota()
 			if errors.Is(err, ErrFetchBlocked) || errors.Is(err, claude.ErrFetchBlocked) || errors.Is(err, gemini.ErrFetchBlocked) || errors.Is(err, grok.ErrFetchBlocked) {
-				return nil, ErrFetchBlocked
+				return notes.Transcript{}, "", "", ErrFetchBlocked
 			}
 			if errors.Is(err, ErrTranscriptEmpty) || errors.Is(err, claude.ErrTranscriptEmpty) {
-				return nil, ErrTranscriptEmpty
+				return notes.Transcript{}, "", "", ErrTranscriptEmpty
 			}
-			return nil, ErrFetchFailed
+			return notes.Transcript{}, "", "", ErrFetchFailed
 		}
 		transcript = t
 		providerName = transcript.Provider
@@ -156,24 +138,46 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 	}
 
 	if len(transcript.Messages) == 0 {
-		rollbackQuota()
-		return nil, ErrTranscriptEmpty
+		return notes.Transcript{}, "", "", ErrTranscriptEmpty
 	}
 
-	// Check raw size: over 2 MB raw -> transcript_too_long
 	var rawSize int
 	for _, m := range transcript.Messages {
 		rawSize += len(m.Content)
 	}
 	if rawSize > 2*1024*1024 {
-		rollbackQuota()
-		return nil, ErrTranscriptTooLong
+		return notes.Transcript{}, "", "", ErrTranscriptTooLong
 	}
 
-	// 4. Truncate transcript if necessary
+	return transcript, providerName, shareURL, nil
+}
+
+// Ingest executes the 7-step pipeline specified in Section 7.
+func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, error) {
+	now := p.now()
+	period := now.Format("2006-01")
+
+	// Reserve quota before fetch
+	if err := p.store.ReserveIngest(ctx, req.UID, period, p.cfg.MonthlyLimit); err != nil {
+		return nil, err
+	}
+
+	rollbackQuota := func() {
+		if err := p.store.ReleaseIngest(ctx, req.UID); err != nil {
+			p.logger.Error("failed to rollback ingest quota", slog.String("uid", req.UID), slog.String("error", err.Error()))
+		}
+	}
+
+	transcript, providerName, shareURL, err := p.fetchTranscript(ctx, req)
+	if err != nil {
+		rollbackQuota()
+		return nil, err
+	}
+
+	// Truncate transcript if necessary
 	truncatedTranscript := p.truncateTranscript(transcript)
 
-	// 5. Summarise with structured output
+	// Summarise with structured output
 	summary, err := p.summariser.Summarise(ctx, truncatedTranscript)
 	if err != nil {
 		p.logger.Error("summarisation failed", slog.String("error", err.Error()))
@@ -218,6 +222,128 @@ func (p *Pipeline) Ingest(ctx context.Context, req IngestRequest) (*notes.Note, 
 
 	return p.SaveNote(ctx, note, &transcript, keepTranscript)
 }
+
+// Integrate incorporates a new conversation transcript into an existing note.
+func (p *Pipeline) Integrate(ctx context.Context, noteID string, req IngestRequest) (*notes.Note, error) {
+	note, err := p.store.GetNote(ctx, req.UID, noteID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := p.now()
+	period := now.Format("2006-01")
+
+	// Reserve quota before fetch
+	if err := p.store.ReserveIngest(ctx, req.UID, period, p.cfg.MonthlyLimit); err != nil {
+		return nil, err
+	}
+
+	rollbackQuota := func() {
+		if err := p.store.ReleaseIngest(ctx, req.UID); err != nil {
+			p.logger.Error("failed to rollback ingest quota", slog.String("uid", req.UID), slog.String("error", err.Error()))
+		}
+	}
+
+	transcript, _, _, err := p.fetchTranscript(ctx, req)
+	if err != nil {
+		rollbackQuota()
+		return nil, err
+	}
+
+	truncatedTranscript := p.truncateTranscript(transcript)
+	summary, err := p.summariser.Integrate(ctx, note, truncatedTranscript)
+	if err != nil {
+		p.logger.Error("integration summarisation failed", slog.String("error", err.Error()))
+		return nil, ai.ErrSummariseFailed
+	}
+
+	note.Title = summary.Title
+	note.Summary = summary.Summary
+	note.Takeaways = summary.Takeaways
+	note.CodeBlocks = summary.CodeBlocks
+	note.Category = summary.Category
+	note.Tags = summary.Tags
+	note.UpdatedAt = now
+
+	notes.CleanAndTruncateNote(note)
+
+	flags, piiHash := pii.ScanNote(note)
+	note.PIIFlags = flags
+	note.PIIScannedHash = piiHash
+
+	embedText := note.Title + "\n" + note.Summary + "\n" + strings.Join(note.Takeaways, "\n")
+	h := sha256.Sum256([]byte(embedText))
+	newHash := hex.EncodeToString(h[:])
+	if newHash != note.EmbeddingTextHash && p.embedder != nil {
+		vec, err := p.embedder.Embed(ctx, embedText, ai.TaskRetrievalDocument)
+		if err != nil {
+			p.logger.Error("embedding failed", slog.String("error", err.Error()))
+			return nil, ai.ErrEmbedFailed
+		}
+		note.EmbeddingTextHash = newHash
+		note.EmbeddingModel = "gemini-embedding-001"
+		note.Embedding = firestore.Vector32(vec)
+	}
+
+	keepTranscript := note.HasTranscript
+	if req.KeepTranscript != nil {
+		keepTranscript = *req.KeepTranscript
+	} else if !note.HasTranscript {
+		if user, err := p.store.GetUser(ctx, req.UID); err == nil {
+			keepTranscript = user.DefaultKeepTranscript
+		}
+	}
+
+	if keepTranscript {
+		var combinedTranscript notes.Transcript
+		if note.HasTranscript && p.blobStore != nil {
+			blobKey := fmt.Sprintf("transcripts/%s.json.gz", note.ID)
+			if gzData, err := p.blobStore.Get(ctx, blobKey); err == nil {
+				gr, err := gzip.NewReader(bytes.NewReader(gzData))
+				if err == nil {
+					decompressed, err := io.ReadAll(gr)
+					_ = gr.Close()
+					if err == nil {
+						_ = json.Unmarshal(decompressed, &combinedTranscript)
+					}
+				}
+			}
+		}
+		if len(combinedTranscript.Messages) > 0 {
+			combinedTranscript.Messages = append(combinedTranscript.Messages, transcript.Messages...)
+		} else {
+			combinedTranscript = transcript
+		}
+		if p.blobStore != nil {
+			gzData, err := gzipTranscript(combinedTranscript)
+			if err == nil {
+				blobKey := fmt.Sprintf("transcripts/%s.json.gz", note.ID)
+				if putErr := p.blobStore.Put(ctx, blobKey, gzData); putErr != nil {
+					p.logger.Error("failed to write transcript to blob store", slog.String("error", putErr.Error()))
+				} else {
+					note.HasTranscript = true
+					note.TranscriptBytes = len(gzData)
+				}
+			}
+		}
+	} else {
+		if note.HasTranscript && p.blobStore != nil {
+			blobKey := fmt.Sprintf("transcripts/%s.json.gz", note.ID)
+			_ = p.blobStore.Delete(ctx, blobKey)
+			note.HasTranscript = false
+			note.TranscriptBytes = 0
+		}
+	}
+
+	updated, err := p.store.UpdateNote(ctx, req.UID, note)
+	if err != nil {
+		p.logger.Error("failed to update integrated note", slog.String("error", err.Error()))
+		return nil, err
+	}
+
+	return updated, nil
+}
+
 
 // SaveNote validates, embeds, compresses/saves transcript if requested, and stores the note.
 // It is used by both Pipeline.Ingest and direct save (POST /v1/notes).

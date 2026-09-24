@@ -32,6 +32,7 @@ type Summary struct {
 type Summariser interface {
 	Summarise(ctx context.Context, transcript notes.Transcript) (Summary, error)
 	Refine(ctx context.Context, note *notes.Note, instruction string, transcript *notes.Transcript) (Summary, error)
+	Integrate(ctx context.Context, note *notes.Note, newTranscript notes.Transcript) (Summary, error)
 }
 
 type Embedder interface {

@@ -102,6 +102,43 @@ func (v *VertexAI) Refine(ctx context.Context, note *notes.Note, instruction str
 	return v.generateSummary(ctx, contents)
 }
 
+func (v *VertexAI) Integrate(ctx context.Context, note *notes.Note, newTranscript notes.Transcript) (Summary, error) {
+	var sb strings.Builder
+	sb.WriteString("Integrate the new conversation transcript into this existing reference note. Update and merge the substantive outcome, key takeaways, code blocks, and tags so that the resulting note is a comprehensive, standalone reference incorporating both the original note and the new information:\n\n")
+	sb.WriteString("CURRENT NOTE:\n")
+	sb.WriteString(fmt.Sprintf("Title: %s\n", note.Title))
+	sb.WriteString(fmt.Sprintf("Category: %s\n", note.Category))
+	if len(note.Tags) > 0 {
+		sb.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(note.Tags, ", ")))
+	}
+	sb.WriteString(fmt.Sprintf("Summary:\n%s\n\n", note.Summary))
+	if len(note.Takeaways) > 0 {
+		sb.WriteString("Takeaways:\n")
+		for _, t := range note.Takeaways {
+			sb.WriteString(fmt.Sprintf("- %s\n", t))
+		}
+		sb.WriteString("\n")
+	}
+	if len(note.CodeBlocks) > 0 {
+		sb.WriteString("Code Blocks:\n")
+		for _, cb := range note.CodeBlocks {
+			sb.WriteString(fmt.Sprintf("```%s\n%s\n```\n\n", cb.Lang, cb.Code))
+		}
+	}
+
+	sb.WriteString("NEW CONVERSATION TRANSCRIPT TO INTEGRATE:\n")
+	for _, m := range newTranscript.Messages {
+		sb.WriteString(fmt.Sprintf("%s: %s\n\n", strings.ToUpper(m.Role), m.Content))
+	}
+
+	contents := []*genai.Content{
+		genai.NewContentFromText(sb.String(), "user"),
+	}
+
+	return v.generateSummary(ctx, contents)
+}
+
+
 func (v *VertexAI) generateSummary(ctx context.Context, contents []*genai.Content) (Summary, error) {
 	temp := float32(0.2)
 	cfg := &genai.GenerateContentConfig{

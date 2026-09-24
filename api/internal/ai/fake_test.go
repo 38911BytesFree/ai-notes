@@ -100,3 +100,58 @@ func TestFakeEmbedder(t *testing.T) {
 		t.Errorf("expected distinct vectors for different inputs, matching too many components: %d", 768-diffCount)
 	}
 }
+
+func TestFakeSummariser_Integrate(t *testing.T) {
+	ctx := context.Background()
+	summariser := NewFakeSummariser()
+
+	initialNote := &notes.Note{
+		Title:   "Original Title",
+		Summary: "Original Summary",
+		Takeaways: []string{
+			"Takeaway 1",
+			"Takeaway 2",
+		},
+		Category: "Programming",
+		Tags:     []string{"initial"},
+		CodeBlocks: []notes.CodeBlock{
+			{Lang: "go", Code: "func main() {}"},
+		},
+	}
+
+	newTranscript := notes.Transcript{
+		Provider: "claude",
+		Messages: []notes.TranscriptMessage{
+			{
+				Role:    "user",
+				Content: "Can you provide a helper function in python?",
+			},
+			{
+				Role:    "assistant",
+				Content: "Sure, here it is:\n\n```python\ndef helper():\n    return True\n```",
+			},
+		},
+	}
+
+	summary, err := summariser.Integrate(ctx, initialNote, newTranscript)
+	if err != nil {
+		t.Fatalf("Integrate failed: %v", err)
+	}
+
+	if summary.Title != "Original Title" {
+		t.Errorf("expected title to be preserved, got %q", summary.Title)
+	}
+	if !strings.Contains(summary.Summary, "Original Summary") || !strings.Contains(summary.Summary, "[Integrated new information") {
+		t.Errorf("expected summary to contain original summary and integration marker, got %q", summary.Summary)
+	}
+	if len(summary.CodeBlocks) != 2 {
+		t.Fatalf("expected 2 code blocks (1 original + 1 integrated), got %d", len(summary.CodeBlocks))
+	}
+	if summary.CodeBlocks[0].Lang != "go" || summary.CodeBlocks[1].Lang != "python" {
+		t.Errorf("unexpected code block languages: %v", summary.CodeBlocks)
+	}
+	if len(summary.Takeaways) != 3 {
+		t.Errorf("expected 3 takeaways, got %d", len(summary.Takeaways))
+	}
+}
+

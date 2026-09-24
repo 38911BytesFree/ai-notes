@@ -930,3 +930,92 @@ func TestNotes_RefineNote(t *testing.T) {
 		t.Errorf("expected summary to contain refine marker, got %q", refined.Summary)
 	}
 }
+
+func TestServer_IntegrateNote(t *testing.T) {
+	tc := setupTestContext(t)
+	ctx := context.Background()
+
+	noteID := "integrate-test-note"
+	_ = tc.memStore.CreateNote(ctx, &notes.Note{
+		ID:            noteID,
+		OwnerUID:      tc.uid,
+		Title:         "Original Title",
+		Summary:       "Original Summary",
+		Takeaways:     []string{"Original takeaway"},
+		Category:      "Programming",
+		Tags:          []string{"go"},
+		HasTranscript: false,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	})
+
+	otherNoteID := "other-integrate-note"
+	_ = tc.memStore.CreateNote(ctx, &notes.Note{
+		ID:            otherNoteID,
+		OwnerUID:      tc.otherUID,
+		Title:         "Other User Note",
+		Summary:       "Other Summary",
+		Category:      "Programming",
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	})
+
+	// 1. Unauthenticated -> 401
+	unauthReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/integrate", strings.NewReader(`{"text":"hello"}`))
+	unauthRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(unauthRec, unauthReq)
+	if unauthRec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 unauthenticated, got %d", unauthRec.Code)
+	}
+
+	// 2. Empty payload -> 400
+	emptyReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/integrate", strings.NewReader(`{"text":"   "}`))
+	emptyReq.Header.Set("Authorization", "Bearer "+tc.token)
+	emptyRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(emptyRec, emptyReq)
+	if emptyRec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 invalid_argument for empty body, got %d", emptyRec.Code)
+	}
+
+	// 3. Nonexistent note -> 404
+	notFoundReq := httptest.NewRequest("POST", "/v1/notes/nonexistent123/integrate", strings.NewReader(`{"text":"new conversation details"}`))
+	notFoundReq.Header.Set("Authorization", "Bearer "+tc.token)
+	notFoundRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(notFoundRec, notFoundReq)
+	if notFoundRec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 not_found for nonexistent note, got %d", notFoundRec.Code)
+	}
+
+	// 4. Other user's note -> 404
+	otherReq := httptest.NewRequest("POST", "/v1/notes/"+otherNoteID+"/integrate", strings.NewReader(`{"text":"new conversation details"}`))
+	otherReq.Header.Set("Authorization", "Bearer "+tc.token)
+	otherRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(otherRec, otherReq)
+	if otherRec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 not_found for other user's note, got %d", otherRec.Code)
+	}
+
+	// 5. Successful integration
+	bodyBytes, _ := json.Marshal(map[string]string{
+		"text": "new conversation details with python example:\n```python\nprint('hello')\n```",
+	})
+	integrateReq := httptest.NewRequest("POST", "/v1/notes/"+noteID+"/integrate", bytes.NewReader(bodyBytes))
+	integrateReq.Header.Set("Authorization", "Bearer "+tc.token)
+	integrateRec := httptest.NewRecorder()
+	tc.srv.Handler().ServeHTTP(integrateRec, integrateReq)
+	if integrateRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK on integrate, got %d; body: %s", integrateRec.Code, integrateRec.Body.String())
+	}
+
+	var updated notes.Note
+	if err := json.NewDecoder(integrateRec.Body).Decode(&updated); err != nil {
+		t.Fatalf("failed to decode integrate response: %v", err)
+	}
+	if updated.ID != noteID {
+		t.Errorf("expected note ID %q, got %q", noteID, updated.ID)
+	}
+	if !strings.Contains(updated.Summary, "[Integrated new information") {
+		t.Errorf("expected summary to contain integration marker, got %q", updated.Summary)
+	}
+}
+

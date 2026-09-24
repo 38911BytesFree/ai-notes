@@ -296,3 +296,85 @@ func TestPipeline_BlockedProvidersReturnErrFetchBlocked(t *testing.T) {
 		})
 	}
 }
+
+func TestPipeline_Integrate(t *testing.T) {
+	p, _, bs := setupPipeline(t, 10, 200000)
+	ctx := context.Background()
+	uid := "user_test_integrate"
+
+	transcript1 := notes.Transcript{
+		Provider: "chatgpt",
+		Messages: []notes.TranscriptMessage{
+			{Role: "user", Content: "How do I use Go generics?"},
+			{Role: "assistant", Content: "Go generics:\n```go\nfunc Map[T any](s []T) {}\n```"},
+		},
+	}
+
+	p.SetFetcherResolver(func(rawURL string) (ingest.Fetcher, error) {
+		return &mockFetcher{t: transcript1}, nil
+	})
+
+	keep := true
+	initialNote, err := p.Ingest(ctx, ingest.IngestRequest{
+		UID:            uid,
+		ShareURL:       "https://chatgpt.com/share/mock-id",
+		KeepTranscript: &keep,
+	})
+	if err != nil {
+		t.Fatalf("initial Ingest failed: %v", err)
+	}
+
+	// Now integrate manual text with new code snippet
+	integratedNote, err := p.Integrate(ctx, initialNote.ID, ingest.IngestRequest{
+		UID:            uid,
+		Text:           "Can you also show a Python equivalent?\n```python\ndef map_fn(items): pass\n```",
+		Provider:       "manual",
+		KeepTranscript: &keep,
+	})
+	if err != nil {
+		t.Fatalf("Integrate failed: %v", err)
+	}
+
+	if integratedNote.ID != initialNote.ID {
+		t.Errorf("expected same note ID %q, got %q", initialNote.ID, integratedNote.ID)
+	}
+	if !strings.Contains(integratedNote.Summary, "[Integrated new information") {
+		t.Errorf("expected summary to reflect integration, got %q", integratedNote.Summary)
+	}
+	if len(integratedNote.CodeBlocks) != 2 {
+		t.Errorf("expected 2 code blocks after integration, got %d", len(integratedNote.CodeBlocks))
+	}
+	if !integratedNote.HasTranscript {
+		t.Errorf("expected HasTranscript true")
+	}
+
+	// Verify transcript was merged in blob store
+	gzData, err := bs.Get(ctx, "transcripts/"+initialNote.ID+".json.gz")
+	if err != nil {
+		t.Fatalf("failed to get merged transcript from blob store: %v", err)
+	}
+	gr, err := gzip.NewReader(bytes.NewReader(gzData))
+	if err != nil {
+		t.Fatalf("gzip reader failed: %v", err)
+	}
+	var mergedTranscript notes.Transcript
+	if err := json.NewDecoder(gr).Decode(&mergedTranscript); err != nil {
+		t.Fatalf("json decode failed: %v", err)
+	}
+	_ = gr.Close()
+
+	if len(mergedTranscript.Messages) != 3 {
+		t.Fatalf("expected 3 total messages (2 original + 1 integrated), got %d", len(mergedTranscript.Messages))
+	}
+
+	// Verify integrate on nonexistent note returns ErrNotFound
+	_, err = p.Integrate(ctx, "nonexistent-note-id", ingest.IngestRequest{
+		UID:      uid,
+		Text:     "Some text",
+		Provider: "manual",
+	})
+	if !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("expected ErrNotFound for nonexistent note, got %v", err)
+	}
+}
+

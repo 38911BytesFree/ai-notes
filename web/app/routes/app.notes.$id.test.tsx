@@ -80,6 +80,19 @@ vi.mock("~/services/notes-api.server", async () => {
         },
       };
     }),
+    integrateNote: vi.fn(async (_req, _id, payload) => {
+      if (!payload.share_url && !payload.text) {
+        return { ok: false, code: "invalid_argument" };
+      }
+      return {
+        ok: true,
+        data: {
+          ...fixtureNote,
+          title: "Integrated Title",
+          summary: "Integrated Summary with new info",
+        },
+      };
+    }),
   };
 });
 
@@ -280,5 +293,120 @@ describe("NoteDetailView", () => {
     const body = await resp.json();
     expect(body.code).toBe("invalid_argument");
   });
+
+  it("renders the Update note button alongside Edit", () => {
+    currentNote = fixtureNote;
+    render(
+      <MemoryRouter>
+        <NoteDetailView />
+      </MemoryRouter>
+    );
+
+    const updateBtn = screen.getByRole("button", { name: "Update note" });
+    const editBtn = screen.getByRole("button", { name: "Edit" });
+    expect(updateBtn).toBeInTheDocument();
+    expect(editBtn).toBeInTheDocument();
+  });
+
+  it("executes integrate action with text payload successfully", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "integrate");
+    params.append("text", "New conversation content to integrate");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.note.title).toBe("Integrated Title");
+    expect(body.note.summary).toBe("Integrated Summary with new info");
+  });
+
+  it("executes integrate action with allowed share URL successfully", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "integrate");
+    params.append("input", "https://chatgpt.com/share/some-id");
+    params.append("keep_transcript", "true");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.ok).toBe(true);
+    expect(body.note.title).toBe("Integrated Title");
+  });
+
+  it("rejects integrate action when share URL has unsupported provider", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "integrate");
+    params.append("input", "https://unsupported-site.com/share/123");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.code).toBe("unsupported_provider");
+  });
+
+  it("rejects integrate action when input is empty", async () => {
+    const params = new URLSearchParams();
+    params.append("intent", "integrate");
+    params.append("input", "   ");
+
+    const req = new Request("http://localhost/app/notes/note-123", {
+      method: "POST",
+      body: params.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    const resp = await action({
+      request: req,
+      params: { id: "note-123" },
+      context: {},
+    } as any);
+
+    expect(resp.status).toBe(400);
+    const body = await resp.json();
+    expect(body.code).toBe("invalid_argument");
+  });
 });
+
 

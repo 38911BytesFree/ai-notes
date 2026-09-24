@@ -251,6 +251,18 @@ export async function refineNote(
   });
 }
 
+export async function integrateNote(
+  request: Request,
+  id: string,
+  payload: { share_url?: string; text?: string; provider?: string; keep_transcript?: boolean }
+): Promise<ApiResult<Note>> {
+  return callApi<Note>(request, `/v1/notes/${encodeURIComponent(id)}/integrate`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+
 export async function getMe(request: Request): Promise<ApiResult<UserProfile>> {
   return callApi<UserProfile>(request, "/v1/me", {
     method: "GET",

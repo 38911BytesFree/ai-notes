@@ -111,6 +111,67 @@ func (f *FakeSummariser) Refine(ctx context.Context, note *notes.Note, instructi
 	}, nil
 }
 
+func (f *FakeSummariser) Integrate(ctx context.Context, note *notes.Note, newTranscript notes.Transcript) (Summary, error) {
+	title := note.Title
+	if title == "" {
+		title = "Integrated Note"
+	}
+
+	summary := note.Summary + "\n\n[Integrated new information from conversation]"
+
+	takeaways := append([]string{}, note.Takeaways...)
+	takeaways = append(takeaways, "Integrated additional context and verified updated implementation details.")
+
+	category := note.Category
+	if category == "" {
+		category = "Programming"
+	}
+
+	tagMap := make(map[string]bool)
+	for _, t := range note.Tags {
+		tagMap[t] = true
+	}
+	tagMap["integrated"] = true
+	var tags []string
+	for t := range tagMap {
+		tags = append(tags, t)
+	}
+
+	var codeBlocks []notes.CodeBlock
+	codeBlocks = append(codeBlocks, note.CodeBlocks...)
+	for _, m := range newTranscript.Messages {
+		if strings.Contains(m.Content, "```") {
+			parts := strings.Split(m.Content, "```")
+			for i := 1; i < len(parts); i += 2 {
+				block := parts[i]
+				lang := "text"
+				code := block
+				if newlineIdx := strings.Index(block, "\n"); newlineIdx != -1 {
+					langCandidate := strings.TrimSpace(block[:newlineIdx])
+					if langCandidate != "" && len(langCandidate) < 20 {
+						lang = strings.ToLower(langCandidate)
+						code = block[newlineIdx+1:]
+					}
+				}
+				codeBlocks = append(codeBlocks, notes.CodeBlock{
+					Lang: lang,
+					Code: strings.TrimSpace(code),
+				})
+			}
+		}
+	}
+
+	return Summary{
+		Title:      title,
+		Summary:    summary,
+		Takeaways:  takeaways,
+		CodeBlocks: codeBlocks,
+		Category:   category,
+		Tags:       tags,
+	}, nil
+}
+
+
 type FakeEmbedder struct{}
 
 func NewFakeEmbedder() *FakeEmbedder {

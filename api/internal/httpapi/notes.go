@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"ainotes/internal/ai"
+	"ainotes/internal/ingest"
 	"ainotes/internal/notes"
 	"ainotes/internal/pii"
 	"ainotes/internal/store"
@@ -381,6 +382,70 @@ func (s *Server) handleRefineNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(summary)
+}
+
+type IntegrateNoteRequest struct {
+	ShareURL       string `json:"share_url,omitempty"`
+	Text           string `json:"text,omitempty"`
+	Provider       string `json:"provider,omitempty"`
+	KeepTranscript *bool  `json:"keep_transcript,omitempty"`
+}
+
+func (s *Server) handleIntegrateNote(w http.ResponseWriter, r *http.Request) {
+	tok, ok := UserFromContext(r.Context())
+	if !ok || tok == nil {
+		writeError(w, ErrCodeUnauthenticated)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, ErrCodeNotFound)
+		return
+	}
+
+	var req IntegrateNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	if strings.TrimSpace(req.ShareURL) == "" && strings.TrimSpace(req.Text) == "" {
+		writeError(w, ErrCodeInvalidArgument)
+		return
+	}
+
+	if s.pipeline == nil {
+		s.logger.Error("pipeline is not configured on server")
+		writeError(w, ErrCodeInternalError)
+		return
+	}
+
+	provider := req.Provider
+	if strings.TrimSpace(req.Text) != "" && provider == "" {
+		provider = "manual"
+	}
+
+	ingestReq := ingest.IngestRequest{
+		UID:            tok.UID,
+		ShareURL:       strings.TrimSpace(req.ShareURL),
+		Text:           strings.TrimSpace(req.Text),
+		Provider:       provider,
+		KeepTranscript: req.KeepTranscript,
+	}
+
+	note, err := s.pipeline.Integrate(r.Context(), id, ingestReq)
+	if err != nil {
+		s.logger.Warn("integrate failed", slog.String("uid", tok.UID), slog.String("id", id), slog.String("error", err.Error()))
+		writeError(w, mapIngestError(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(note); err != nil {
+		s.logger.Error("failed to write integrate response", slog.String("error", err.Error()))
+	}
 }
 
 func (s *Server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
