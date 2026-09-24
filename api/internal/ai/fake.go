@@ -171,7 +171,6 @@ func (f *FakeSummariser) Integrate(ctx context.Context, note *notes.Note, newTra
 	}, nil
 }
 
-
 type FakeEmbedder struct{}
 
 func NewFakeEmbedder() *FakeEmbedder {

@@ -154,4 +154,3 @@ func TestFakeSummariser_Integrate(t *testing.T) {
 		t.Errorf("expected 3 takeaways, got %d", len(summary.Takeaways))
 	}
 }
-

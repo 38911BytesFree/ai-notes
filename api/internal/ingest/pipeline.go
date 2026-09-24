@@ -344,7 +344,6 @@ func (p *Pipeline) Integrate(ctx context.Context, noteID string, req IngestReque
 	return updated, nil
 }
 
-
 // SaveNote validates, embeds, compresses/saves transcript if requested, and stores the note.
 // It is used by both Pipeline.Ingest and direct save (POST /v1/notes).
 func (p *Pipeline) SaveNote(ctx context.Context, note *notes.Note, transcript *notes.Transcript, keepTranscript bool) (*notes.Note, error) {

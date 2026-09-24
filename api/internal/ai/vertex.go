@@ -138,7 +138,6 @@ func (v *VertexAI) Integrate(ctx context.Context, note *notes.Note, newTranscrip
 	return v.generateSummary(ctx, contents)
 }
 
-
 func (v *VertexAI) generateSummary(ctx context.Context, contents []*genai.Content) (Summary, error) {
 	temp := float32(0.2)
 	cfg := &genai.GenerateContentConfig{

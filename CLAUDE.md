@@ -80,6 +80,10 @@ AI Notes is composed of two containerized services running on Google Cloud Run:
 18. **Every absolute URL is built from `PUBLIC_BASE_URL`**: Never construct public or canonical URLs from the request `Host` header (in any meta tag, redirect, sitemap entry, bookmarklet, or tool response).
 19. **The transcript is never public**: Raw conversation transcripts are excluded from public projections, feeds, sitemaps, Open Graph descriptions, and JSON-LD structured data.
 20. **Service worker caches nothing**: `/sw.js` implements a pass-through fetch listener without caching, preventing accidental leakage of authenticated HTML between sessions.
+21. **Always run CI checks locally before completion**: Never commit or declare a task complete without running all applicable CI checks locally:
+    - API: `cd api && gofmt -w . && go vet ./... && go test ./...`
+    - Web: `pnpm --filter web typecheck && pnpm --filter web test && pnpm --filter web build`
+    - Infra (if modified): `terraform -chdir=infra/terraform/bootstrap fmt -check && terraform -chdir=infra/terraform fmt -check`
 
 ## Deployment Notes
 

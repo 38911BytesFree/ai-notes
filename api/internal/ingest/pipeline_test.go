@@ -377,4 +377,3 @@ func TestPipeline_Integrate(t *testing.T) {
 		t.Errorf("expected ErrNotFound for nonexistent note, got %v", err)
 	}
 }
-

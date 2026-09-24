@@ -951,13 +951,13 @@ func TestServer_IntegrateNote(t *testing.T) {
 
 	otherNoteID := "other-integrate-note"
 	_ = tc.memStore.CreateNote(ctx, &notes.Note{
-		ID:            otherNoteID,
-		OwnerUID:      tc.otherUID,
-		Title:         "Other User Note",
-		Summary:       "Other Summary",
-		Category:      "Programming",
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		ID:        otherNoteID,
+		OwnerUID:  tc.otherUID,
+		Title:     "Other User Note",
+		Summary:   "Other Summary",
+		Category:  "Programming",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	})
 
 	// 1. Unauthenticated -> 401
@@ -1018,4 +1018,3 @@ func TestServer_IntegrateNote(t *testing.T) {
 		t.Errorf("expected summary to contain integration marker, got %q", updated.Summary)
 	}
 }
-
